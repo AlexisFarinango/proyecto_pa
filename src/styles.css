@@ -1,0 +1,167 @@
+/* Fondo con textura de césped */
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+  background-size: cover;
+  font-family: 'Trebuchet MS', sans-serif;
+  color: #fff;
+}
+
+/* Contenedor principal */
+.app-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 30px;
+  background: rgba(0,0,0,0.7);
+  border: 4px solid #ffd600;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(255, 214, 0, 0.5);
+}
+
+/* Título principal */
+.titulo-principal {
+  text-align: center;
+  font-size: 2.5rem;
+  text-shadow: 2px 2px 4px #000;
+  margin-bottom: 30px;
+}
+
+/* Formulario */
+.form-futbol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-titulo {
+  text-align: center;
+  font-size: 2rem;
+  color: #ffd600;
+  margin-bottom: 10px;
+}
+
+/* Campos */
+.campo {
+  display: flex;
+  flex-direction: column;
+}
+
+.campo label {
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #ffd600;
+}
+
+.campo input {
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 1rem;
+}
+
+.campo input:focus {
+  outline: 3px solid #ffd600;
+}
+
+.readonly {
+  background: #c8e6c9;
+}
+
+/* Botón */
+.btn-enviar {
+  background: #ffd600;
+  color: #1b5e20;
+  font-weight: bold;
+  font-size: 1.2rem;
+  padding: 12px;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-enviar:hover {
+  background: #ffea00;
+  transform: scale(1.05);
+}
+
+/* Error */
+.error {
+  color: #ff5252;
+  font-size: 0.9rem;
+  margin-top: 5px;
+}
+
+
+/* 🌀 Loader pantalla completa */
+.overlay-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  color: #ffd600;
+  font-size: 1.5rem;
+}
+
+.ball-loader {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 20px 20px, white 20%, black 21%);
+  animation: bounce 1s infinite alternate;
+  margin-bottom: 20px;
+}
+
+@keyframes bounce {
+  to { transform: translateY(-40px); }
+}
+
+/* 📦 Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+}
+
+.modal-content {
+  background: #1b5e20;
+  border: 3px solid #ffd600;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  width: 90%;
+  max-width: 400px;
+  color: #fff;
+  font-size: 1.2rem;
+  box-shadow: 0 0 20px #ffd600;
+}
+
+.btn-cerrar {
+  margin-top: 20px;
+  background: #ffd600;
+  color: #1b5e20;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-cerrar:hover {
+  background: #ffea00;
+}
