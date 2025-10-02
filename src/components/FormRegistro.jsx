@@ -245,17 +245,17 @@ export default function FormRegistro() {
           />
         </div>
         <div className="campo">
-          <label>Foto frontal</label>
+          <label>Foto Cedula Parte Frontal</label>
           <input type="file" required onChange={e => setIdFile(e.target.files[0])} disabled={loading}/>
         </div>
 
         <div className="campo">
-          <label>Foto trasera</label>
+          <label>Foto Cedula Parte Trasera</label>
           <input type="file" required onChange={e => setBackImage(e.target.files[0])} disabled={loading}/>
         </div>
 
         <div className="campo">
-          <label>Selfie</label>
+          <label>Selfie Jugador</label>
           <input type="file" required onChange={e => setSelfieFile(e.target.files[0])} disabled={loading}/>
         </div>
 
