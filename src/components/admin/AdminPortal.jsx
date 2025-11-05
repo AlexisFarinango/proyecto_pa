@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import DirigentesTab from "./DirigentesTab";
 import EquiposTab from "./EquiposTab";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminPortal() {
+  const nav = useNavigate();
   const [tab, setTab] = useState("dirigentes");
   const auth = sessionStorage.getItem("adminBasic");
 
@@ -27,9 +29,16 @@ export default function AdminPortal() {
   if (!auth) {
     return <div className="form-futbol"><p className="error">No autenticado como admin.</p></div>;
   }
+  const logout = () => {
+    sessionStorage.clear();
+    nav("/");
+  };
 
   return (
     <div className="form-futbol">
+      <div className="btn-row-right">
+        <button className="btn-cerrar" onClick={logout}>Cerrar Sesión</button>
+      </div>
       <h2 className="form-titulo">🛠️ Portal Admin</h2>
 
       <div className="btn-group tabs-group">

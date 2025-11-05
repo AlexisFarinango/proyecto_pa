@@ -87,8 +87,16 @@ export default function PanelDirigente() {
     }
   };
 
+  const logout = () => {
+    sessionStorage.clear();
+    nav("/");
+  };
+
   return (
     <div className="form-futbol">
+      <div className="btn-row-right">
+        <button className="btn-cerrar" onClick={logout}>Cerrar Sesión</button>
+      </div>
       <h2 className="form-titulo">👥 Jugadores del equipo: {equipoNombre}</h2>
 
       {msg && <p className="error">{msg}</p>}

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; 
 
 export default function DirigentesTab() {
-  const auth = sessionStorage.getItem("adminBasic");
+  const nav = useNavigate();
+
   const [list, setList] = useState([]);
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
@@ -9,12 +11,37 @@ export default function DirigentesTab() {
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState(null);
 
-  const headers = { "Content-Type": "application/json", Authorization: `Basic ${auth}` };
+  // helper para construir headers siempre con el valor actual
+  const getHeaders = () => {
+    const adminBasic = sessionStorage.getItem("adminBasic");
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${adminBasic || ""}`,
+    };
+  };
+
+  const ensureSession = () => {
+    const adminBasic = sessionStorage.getItem("adminBasic");
+    if (!adminBasic) {
+      setMsg("Sesión expirada. Inicia sesión otra vez");
+      nav("/admin/login", { replace: true });
+      return false;
+    }
+    return true;
+  };
 
   const load = async () => {
     setMsg("");
+    if (!ensureSession()) return;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/dirigentes`, { headers });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/dirigentes`,
+        { headers: getHeaders() }
+      );
+      if (resp.status === 401) {
+        ensureSession(); // redirige
+        return;
+      }
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error listando dirigentes");
       setList(data);
@@ -27,11 +54,13 @@ export default function DirigentesTab() {
 
   const crear = async () => {
     setMsg("");
+    if (!ensureSession()) return;
     try {
       const body = { usuario, password, nombre: equipo };
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/dirigentes`, {
-        method: "POST", headers, body: JSON.stringify(body)
-      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/dirigentes`,
+        { method: "POST", headers: getHeaders(), body: JSON.stringify(body) }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error creando dirigente");
       setUsuario(""); setPassword(""); setEquipo("");
@@ -40,21 +69,32 @@ export default function DirigentesTab() {
   };
 
   const saveEdit = async () => {
+    if (!ensureSession()) return;
     try {
-      const body = { usuario: editing.usuario, password: editing.password, nombre: editing.nombre };
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/dirigentes/${editing._id}`, {
-        method: "PUT", headers, body: JSON.stringify(body)
-      });
+      const body = {
+        usuario: editing.usuario,
+        password: editing.password,
+        nombre: editing.nombre,
+      };
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/dirigentes/${editing._id}`,
+        { method: "PUT", headers: getHeaders(), body: JSON.stringify(body) }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error editando dirigente");
-      setEditing(null); load();
+      setEditing(null);
+      load();
     } catch (e) { setMsg(e.message); }
   };
 
   const eliminar = async (id) => {
+    if (!ensureSession()) return;
     if (!confirm("¿Eliminar dirigente? También liberará la relación del equipo.")) return;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/dirigentes/${id}`, { method: "DELETE", headers });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/dirigentes/${id}`,
+        { method: "DELETE", headers: getHeaders() }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error eliminando dirigente");
       load();
@@ -65,7 +105,6 @@ export default function DirigentesTab() {
     <>
       <h3 style={{ color: "#ffd600" }}>Crear dirigente</h3>
       {msg && <p className="error">{msg}</p>}
-
       {/* Grid 3→2→1 columnas */}
       <div className="grid-3">
         <div className="campo">

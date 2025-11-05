@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; 
 
 export default function EquiposTab() {
-  const auth = sessionStorage.getItem("adminBasic");
-  const headers = { "Content-Type": "application/json", Authorization: `Basic ${auth}` };
+  const nav = useNavigate();
 
   const [equipos, setEquipos] = useState([]);
   const [sinCodigo, setSinCodigo] = useState([]);
@@ -12,10 +12,33 @@ export default function EquiposTab() {
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState(null);
 
+  const getHeaders = () => {
+    const adminBasic = sessionStorage.getItem("adminBasic");
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${adminBasic || ""}`,
+    };
+  };
+
+  const ensureSession = () => {
+    const adminBasic = sessionStorage.getItem("adminBasic");
+    if (!adminBasic) {
+      setMsg("Sesión expirada. Inicia sesión otra vez");
+      nav("/admin/login", { replace: true });
+      return false;
+    }
+    return true;
+  };
+
   const load = async () => {
     setMsg("");
+    if (!ensureSession()) return;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/equipos`, { headers });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/equipos`,
+        { headers: getHeaders() }
+      );
+      if (resp.status === 401) { ensureSession(); return; }
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error listando equipos");
       setEquipos(data);
@@ -27,11 +50,13 @@ export default function EquiposTab() {
   useEffect(() => { load(); /* eslint-disable */ }, []);
 
   const agregar = async () => {
+    if (!ensureSession()) return;
     try {
       const body = { equipoId: seleccion, codigo };
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/equipos`, {
-        method: "POST", headers, body: JSON.stringify(body)
-      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/equipos`,
+        { method: "POST", headers: getHeaders(), body: JSON.stringify(body) }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error agregando código");
       setSeleccion(""); setCodigo("");
@@ -40,25 +65,32 @@ export default function EquiposTab() {
   };
 
   const saveEdit = async () => {
+    if (!ensureSession()) return;
     try {
       const body = {
         nombre: editing.nombre,
         codigo: editing.codigo,
-        dirigenteId: editing.dirigenteId?._id || editing.dirigenteId
+        dirigenteId: editing.dirigenteId?._id || editing.dirigenteId,
       };
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/equipos/${editing._id}`, {
-        method: "PUT", headers, body: JSON.stringify(body)
-      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/equipos/${editing._id}`,
+        { method: "PUT", headers: getHeaders(), body: JSON.stringify(body) }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error editando equipo");
-      setEditing(null); load();
+      setEditing(null);
+      load();
     } catch (e) { setMsg(e.message); }
   };
 
   const eliminar = async (id) => {
+    if (!ensureSession()) return;
     if (!confirm("¿Eliminar registro de equipo? (Solo elimina el documento de Equipo, no jugadores)")) return;
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/equipos/${id}`, { method: "DELETE", headers });
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/equipos/${id}`,
+        { method: "DELETE", headers: getHeaders() }
+      );
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || "Error eliminando equipo");
       load();
