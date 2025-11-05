@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import dayjs from 'dayjs';
 
-const cedulaRegex = /^\d{10}$/;
+const identRegex = /^[A-Za-z0-9\-]+$/;
 const nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
 
 export default function FormRegistro() {
@@ -10,30 +10,37 @@ export default function FormRegistro() {
     firstName: '',
     lastName: '',
     dob: '',
-    cedula: '',
+    identificacion: '',
     numjugador: '',
     team: ''
   });
   const [validCode, setValidCode] = useState(false);
+  const [age, setAge] = useState(null);
   const [ageDisplay, setAgeDisplay] = useState('');
   const [idFile, setIdFile] = useState(null);
   const [idBackImage, setBackImage] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
+  const [autorizacionFile, setAutorizacionFile] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
 
-  // modal para credenciales de admin
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminUser, setAdminUser] = useState('');
-  const [adminPass, setAdminPass] = useState('');
-
+  const showMsg = (text) => {
+    setModalMessage(text);
+    setShowModal(true);
+  };
   const handleDob = (e) => {
     const val = e.target.value;
     setForm(f => ({ ...f, dob: val }));
-    if (val) setAgeDisplay(dayjs().diff(dayjs(val), 'year') + ' AÑOS');
-    else setAgeDisplay('');
+    if (val) {
+      const years = dayjs().diff(dayjs(val), 'year');
+      setAge(years);
+      setAgeDisplay(`${years} AÑOS`);
+    } else {
+      setAge(null);
+      setAgeDisplay('');
+    }
   };
 
   const validateCode = async (code) => {
@@ -45,11 +52,11 @@ export default function FormRegistro() {
     }
 
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/validate/${encodeURIComponent(code)}`);
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/equipos/validate/${encodeURIComponent(code)}`);
       if (resp.ok) {
-        const data = await resp.json();
+        const data = await resp.json(); // { nombre, codigo, dirigenteId }
         setValidCode(true);
-        setForm(f => ({ ...f, team: data.team }));
+        setForm(f => ({ ...f, team: data.nombre }));
       } else {
         setValidCode(false);
         setForm(f => ({ ...f, team: '' }));
@@ -66,13 +73,15 @@ export default function FormRegistro() {
       firstName: '',
       lastName: '',
       dob: '',
-      cedula: '',
+      identificacion: '',
       numjugador: '',
       team: ''
     });
     setIdFile(null);
     setBackImage(null);
     setSelfieFile(null);
+    setAutorizacionFile(null);
+    setAge(null);
     setAgeDisplay('');
     setValidCode(false);
     document.querySelectorAll('input[type="file"]').forEach(input => input.value = '');
@@ -83,10 +92,25 @@ export default function FormRegistro() {
     if (!validCode) return alert('Código de dirigente inválido');
     if (!nameRegex.test(form.firstName)) return alert('Nombres inválidos');
     if (!nameRegex.test(form.lastName)) return alert('Apellidos inválidos');
-    if (!cedulaRegex.test(form.cedula)) return alert('Cédula inválida');
     if (!form.dob) return alert('Fecha requerida');
+    const years = age ?? dayjs().diff(dayjs(form.dob), 'year');
+    if (years < 14) {
+      showMsg('❌ No se permiten registros menores de 14 años');
+      return;
+    }
+
+
+    if (!identRegex.test(form.identificacion)) return alert('Identificación inválida (use letras, números o guiones)');
     if (!form.numjugador || isNaN(form.numjugador) || form.numjugador < 1 || form.numjugador > 99) return alert('Número inválido (1-99)');
     if (!idFile || !idBackImage || !selfieFile) return alert('Sube todas las imágenes');
+
+     // autorización obligatoria si 14 ≤ edad < 18
+    const requiereAut = years >= 14 && years < 18;
+    if (requiereAut && !autorizacionFile) {
+      showMsg('❌ Debe adjuntar autorización de padre/madre/representante');
+      return;
+    }
+
 
     setLoading(true);
 
@@ -95,6 +119,7 @@ export default function FormRegistro() {
     fd.append('idImage', idFile);
     fd.append('idBackImage', idBackImage);
     fd.append('selfieImage', selfieFile);
+    if (autorizacionFile) fd.append('autorizacion', autorizacionFile);
 
     try {
       const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, { method: 'POST', body: fd });
@@ -114,37 +139,6 @@ export default function FormRegistro() {
     }
   };
 
-  // abrir modal para pedir credenciales de admin
-  const handleDownloadClick = () => {
-    setAdminUser('');
-    setAdminPass('');
-    setShowAdminModal(true);
-  };
-
-  // descarga Excel con basic auth
-  const downloadExcel = async () => {
-    try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/users/export`, {
-        headers: {
-          'Authorization': 'Basic ' + btoa(`${adminUser}:${adminPass}`)
-        }
-      });
-      if (!resp.ok) throw new Error('No se pudo generar el Excel');
-      const blob = await resp.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'jugadores.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setShowAdminModal(false);
-    } catch (error) {
-      setModalMessage('❌ Usuario o contraseña incorrecta');
-      setShowModal(true);
-    }
-  };
-
   return (
     <>
       {/* Loader */}
@@ -156,7 +150,13 @@ export default function FormRegistro() {
       )}
 
       <form onSubmit={submit} className="form-futbol">
-        <h2 className="form-titulo">⚽ Registro de Jugador ⚽</h2>
+        <div className="brand-header">
+          <img src="/logo-liga.png" alt="Liga Deportiva Bienestar Familiar de Calderón" className="brand-badge" />
+          <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
+          <p className="brand-subtitle">Acuerdo ministerial N. 0184 – 15 agosto 2023</p>
+          <p className="brand-subtitle brand-subtitle--thin">Nómina de jugadores – 6º campeonato de indorfútbol masculino</p>
+        </div>
+
 
         {/* Código Dirigente */}
         <div className="campo">
@@ -214,14 +214,14 @@ export default function FormRegistro() {
         </div>
 
         <div className="campo">
-          <label>Cédula</label>
+          <label>Identificación (cédula/pasaporte)</label>
           <input
             required
-            value={form.cedula}
-            maxLength={10} // máximo 10 números
+            value={form.identificacion}
+            maxLength={20}
             onChange={e => {
-              const val = e.target.value.replace(/\D/g, ''); // solo números
-              setForm(f => ({ ...f, cedula: val }));
+              const val = e.target.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+              setForm(f => ({ ...f, identificacion: val }));
             }}
             disabled={loading}
           />
@@ -244,13 +244,18 @@ export default function FormRegistro() {
             disabled={loading}
           />
         </div>
+
+        <p style={{ fontSize: 14, marginTop: -10 }}>
+          Nota: si el documento de identificación es <b>pasaporte</b>, sube la misma imagen/archivo en “Cédula frontal” y “Cédula trasera”.
+        </p>
+
         <div className="campo">
-          <label>Foto Cedula Parte Frontal</label>
+          <label>Cédula/Pasaporte - Parte Frontal</label>
           <input type="file" required onChange={e => setIdFile(e.target.files[0])} disabled={loading}/>
         </div>
 
         <div className="campo">
-          <label>Foto Cedula Parte Trasera</label>
+          <label>Foto Cédula/Pasaporte - Parte Trasera</label>
           <input type="file" required onChange={e => setBackImage(e.target.files[0])} disabled={loading}/>
         </div>
 
@@ -259,25 +264,17 @@ export default function FormRegistro() {
           <input type="file" required onChange={e => setSelfieFile(e.target.files[0])} disabled={loading}/>
         </div>
 
+        {/* Autorización condicional */}
+        {(age !== null && age >= 14 && age < 18) && (
+          <div className="campo">
+            <label>Autorización padre/madre/representante (imagen o PDF)</label>
+            <input type="file" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
+          </div>
+        )}
+        
+
         <button type="submit" className="btn-enviar" disabled={loading}>Registrar Jugador 🏅</button>
 
-        <button
-          type="button"
-          style={{
-            backgroundColor: "#28a745",
-            color: "#fff",
-            padding: "10px 20px",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "16px",
-            cursor: "pointer",
-            transition: "0.2s",
-            marginTop: "10px"
-          }}
-          onClick={handleDownloadClick}
-        >
-          📥 Descargar Excel (admin)
-        </button>
       </form>
 
       {/* Modal respuesta */}
@@ -286,95 +283,6 @@ export default function FormRegistro() {
           <div className="modal-content">
             <p>{modalMessage}</p>
             <button onClick={() => setShowModal(false)} className="btn-cerrar">Cerrar</button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal credenciales admin */}
-      {showAdminModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{
-            padding: '30px',
-            borderRadius: '12px',
-            maxWidth: '400px',
-            width: '90%',
-            textAlign: 'center',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
-            backgroundColor: '#fff',
-            position: 'relative'
-          }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '20px', color: '#333' }}>🔒 Credenciales de Admin</h3>
-            
-            <input
-              type="text"
-              placeholder="Usuario"
-              value={adminUser}
-              onChange={e => setAdminUser(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '15px',
-                borderRadius: '8px',
-                border: '1px solid #ccc',
-                fontSize: '16px'
-              }}
-            />
-            
-            <input
-              type="password"
-              placeholder="Contraseña"
-              value={adminPass}
-              onChange={e => setAdminPass(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                marginBottom: '20px',
-                borderRadius: '8px',
-                border: '1px solid #ccc',
-                fontSize: '16px'
-              }}
-            />
-
-            {/* Botones */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-              <button
-                onClick={async () => {
-                  setLoading(true); // Mostrar loader
-                  await downloadExcel();
-                  setLoading(false);
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  backgroundColor: '#28a745',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  transition: '0.2s'
-                }}
-              >
-                {loading ? '⏳ Procesando...' : 'Aceptar'}
-              </button>
-              <button
-                onClick={() => setShowAdminModal(false)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  backgroundColor: '#dc3545',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  transition: '0.2s'
-                }}
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-            </div>
           </div>
         </div>
       )}
