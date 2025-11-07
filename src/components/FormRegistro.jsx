@@ -42,6 +42,31 @@ export default function FormRegistro() {
       setAgeDisplay('');
     }
   };
+  // Helper genérico para validar imágenes
+  const handleImageOnly = (e, setFile, label = 'Archivo') => {
+    const file = e.target.files?.[0];
+    if (!file) { setFile(null); return; }
+
+    // Solo imágenes
+    if (!file.type || !file.type.startsWith('image/')) {
+      setFile(null);
+      e.target.value = '';
+      showMsg(`❌ ${label}: solo se permiten imágenes (JPG, PNG, etc.).`);
+      return;
+    }
+
+    // Máx 10MB
+    const maxBytes = 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setFile(null);
+      e.target.value = '';
+      showMsg(`❌ ${label}: tamaño máximo 10MB.`);
+      return;
+    }
+
+    setFile(file);
+  };
+
 
   const validateCode = async (code) => {
     setForm(f => ({ ...f, codDirigente: code }));
@@ -89,31 +114,30 @@ export default function FormRegistro() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!validCode) return alert('Código de dirigente inválido');
-    if (!nameRegex.test(form.firstName)) return alert('Nombres inválidos');
-    if (!nameRegex.test(form.lastName)) return alert('Apellidos inválidos');
-    if (!form.dob) return alert('Fecha requerida');
+    form.firstName = form.firstName.trim().replace(/\s+/g, ' ');
+    form.lastName = form.lastName.trim().replace(/\s+/g, ' ');
+
+    // Validaciones front (las tuyas + autorización condicional)
+    if (!validCode)        return showMsg('❌ Código de dirigente inválido');
+    if (!nameRegex.test(form.firstName)) return showMsg('❌ Nombres inválidos');
+    if (!nameRegex.test(form.lastName))  return showMsg('❌ Apellidos inválidos');
+    if (!form.dob)         return showMsg('❌ Fecha requerida');
+
     const years = age ?? dayjs().diff(dayjs(form.dob), 'year');
-    if (years < 14) {
-      showMsg('❌ No se permiten registros menores de 14 años');
-      return;
-    }
+    if (years < 14)        return showMsg('❌ No se permiten registros menores de 14 años');
 
+    if (!identRegex.test(form.identificacion))
+      return showMsg('❌ Identificación inválida (use letras, números o guiones)');
 
-    if (!identRegex.test(form.identificacion)) return alert('Identificación inválida (use letras, números o guiones)');
-    if (!form.numjugador || isNaN(form.numjugador) || form.numjugador < 1 || form.numjugador > 99) return alert('Número inválido (1-99)');
-    if (!idFile || !idBackImage || !selfieFile) return alert('Sube todas las imágenes');
+    if (!form.numjugador || isNaN(form.numjugador) || form.numjugador < 1 || form.numjugador > 99)
+      return showMsg('❌ Número inválido (1-99)');
 
-     // autorización obligatoria si 14 ≤ edad < 18
     const requiereAut = years >= 14 && years < 18;
-    if (requiereAut && !autorizacionFile) {
-      showMsg('❌ Debe adjuntar autorización de padre/madre/representante');
-      return;
-    }
+    if (requiereAut && !autorizacionFile)
+      return showMsg('❌ Debe adjuntar autorización de padre/madre/representante');
 
-
+    // ---- Envío
     setLoading(true);
-
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, v));
     fd.append('idImage', idFile);
@@ -121,23 +145,80 @@ export default function FormRegistro() {
     fd.append('selfieImage', selfieFile);
     if (autorizacionFile) fd.append('autorizacion', autorizacionFile);
 
+    // timeout opcional para fetch (20s)
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 20000);
+
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/users`, { method: 'POST', body: fd });
-      const data = await resp.json();
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/users`,
+        { method: 'POST', body: fd, signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
+      // intentamos leer json; si no hay, data = null
+      let data = null;
+      try { data = await resp.json(); } catch { /* noop */ }
 
       if (resp.ok) {
-        setModalMessage('✅ Registrado correctamente');
+        showMsg('✅ Registrado correctamente');
         resetForm();
-      } else {
-        setModalMessage(`❌ ${data.message || 'Error al registrar'}`);
+        return;
       }
-    } catch (error) {
-      setModalMessage('❌ Error al conectar con el servidor');
+
+      // ----- Mapeo de códigos de error
+      let message = '';
+      switch (resp.status) {
+        case 400:
+          // errores de validación desde tu backend
+          message = data?.message ||
+                    'Datos inválidos. Revisa nombres, identificación, fecha y números.';
+          break;
+        case 401:
+          message = data?.message || 'No autorizado.';
+          break;
+        case 404:
+          message = data?.message || 'Código de equipo no encontrado.';
+          break;
+        case 409:
+          // conflictos típicos: identificación duplicada o número repetido
+          // tu backend ya envía mensajes útiles, los mostramos:
+          message = data?.message ||
+                    'Ya existe un registro con estos datos (identificación o número).';
+          break;
+        case 413:
+          message = 'Archivo demasiado grande. Máximo 10MB por archivo.';
+          break;
+        case 415:
+          message = 'Formato de archivo no permitido. Usa imagen o PDF (solo autorización).';
+          break;
+        case 500:
+          message = data?.detail || data?.message || 'Error interno del servidor.';
+          break;
+        default:
+          message = data?.message || `Error inesperado (${resp.status}).`;
+          break;
+      }
+
+      showMsg(`❌ ${message}`);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      // Errores de red / CORS / timeout
+      if (err.name === 'AbortError') {
+        showMsg('⏱️ Tiempo de espera agotado. Inténtalo nuevamente.');
+      } else if (
+        typeof err.message === 'string' &&
+        err.message.toLowerCase().includes('failed to fetch')
+      ) {
+        showMsg('🌐 No se pudo conectar con el servidor. Revisa tu conexión o CORS.');
+      } else {
+        showMsg(`❌ Error de red: ${err.message}`);
+      }
     } finally {
-      setShowModal(true);
       setLoading(false);
     }
   };
+
 
   return (
     <>
@@ -164,7 +245,12 @@ export default function FormRegistro() {
           <input
             required
             value={form.codDirigente}
-            onChange={e => validateCode(e.target.value)}
+            placeholder="Código de dirigente"
+            onChange={e => {
+              // Eliminar espacios (al escribir y pegar)
+              let val = e.target.value.replace(/\s+/g, "");
+              validateCode(val);
+            }}
             disabled={loading}
           />
           {!validCode && form.codDirigente && <p className="error">Código inválido</p>}
@@ -180,11 +266,18 @@ export default function FormRegistro() {
           <input
             required
             value={form.firstName}
+            placeholder="Nombres Jugador"
             maxLength={100} // máximo 100 caracteres
-            onChange={e => {
-              const val = e.target.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); // solo letras y espacios
-              setForm(f => ({ ...f, firstName: val.toUpperCase() }));
-            }}
+            onChange={e => { let val = e.target.value; 
+              // Solo letras y espacios 
+              val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
+              // Quitar espacios al inicio/final 
+              val = val.trimStart(); 
+              // Reemplazar múltiples espacios por uno 
+              val = val.replace(/\s+/g, ' '); 
+              // Convertir a mayúsculas 
+              val = val.toUpperCase(); 
+              setForm(f => ({ ...f, firstName: val })); }}
             disabled={loading}
           />
         </div>
@@ -194,11 +287,18 @@ export default function FormRegistro() {
           <input
             required
             value={form.lastName}
+            placeholder="Apellidos Jugador"
             maxLength={100} // máximo 100 caracteres
-            onChange={e => {
-              const val = e.target.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); // solo letras y espacios
-              setForm(f => ({ ...f, lastName: val.toUpperCase() }));
-            }}
+            onChange={e => { let val = e.target.value; 
+              // Solo letras y espacios 
+              val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
+              // Quitar espacios al inicio/final 
+              val = val.trimStart(); 
+              // Reemplazar múltiples espacios por uno 
+              val = val.replace(/\s+/g, ' '); 
+              // Convertir a mayúsculas 
+              val = val.toUpperCase(); 
+              setForm(f => ({ ...f, lastName: val })); }}
             disabled={loading}
           />
         </div>
@@ -217,6 +317,7 @@ export default function FormRegistro() {
           <label>Identificación (cédula/pasaporte)</label>
           <input
             required
+            placeholder="Identificación Jugador"
             value={form.identificacion}
             maxLength={20}
             onChange={e => {
@@ -233,6 +334,7 @@ export default function FormRegistro() {
             type="number"
             required
             value={form.numjugador}
+            placeholder="Número Jugador"
             min={1}
             max={99}
             onChange={e => {
@@ -245,30 +347,53 @@ export default function FormRegistro() {
           />
         </div>
 
-        <p style={{ fontSize: 14, marginTop: -10 }}>
-          Nota: si el documento de identificación es <b>pasaporte</b>, sube la misma imagen/archivo en “Cédula frontal” y “Cédula trasera”.
+        <p style={{ fontSize: 20, marginTop: 15 }}>
+          Nota: si el documento de identificación es <b>pasaporte</b>, sube la misma Imagen/Foto del Pasaporte en “Cédula frontal” y “Cédula trasera”.
         </p>
 
+        {/* Cédula/Pasaporte - Parte Frontal */}
         <div className="campo">
-          <label>Cédula/Pasaporte - Parte Frontal</label>
-          <input type="file" required onChange={e => setIdFile(e.target.files[0])} disabled={loading}/>
+          <label>Cédula/Pasaporte - Parte Fronta (IMAGEN/FOTO)</label>
+          <input
+            type="file"
+            required
+            accept="image/*"
+            // capture="environment" // opcional: abre cámara trasera en móviles
+            onChange={e => handleImageOnly(e, setIdFile, 'Cédula frontal')}
+            disabled={loading}
+          />
         </div>
 
+        {/* Foto Cédula/Pasaporte - Parte Trasera */}
         <div className="campo">
-          <label>Foto Cédula/Pasaporte - Parte Trasera</label>
-          <input type="file" required onChange={e => setBackImage(e.target.files[0])} disabled={loading}/>
+          <label>Foto Cédula/Pasaporte - Parte Trasera (IMAGEN/FOTO)</label>
+          <input
+            type="file"
+            required
+            accept="image/*"
+            // capture="environment"
+            onChange={e => handleImageOnly(e, setBackImage, 'Cédula trasera')}
+            disabled={loading}
+          />
         </div>
 
+        {/* Selfie Jugador */}
         <div className="campo">
-          <label>Selfie Jugador</label>
-          <input type="file" required onChange={e => setSelfieFile(e.target.files[0])} disabled={loading}/>
+          <label>Selfie Jugador (IMAGEN/FOTO)</label>
+          <input
+            type="file"
+            required
+            accept="image/*"
+            // capture="user" // opcional: cámara frontal
+            onChange={e => handleImageOnly(e, setSelfieFile, 'Selfie')}
+            disabled={loading}
+          />
         </div>
-
         {/* Autorización condicional */}
         {(age !== null && age >= 14 && age < 18) && (
           <div className="campo">
-            <label>Autorización padre/madre/representante (imagen o PDF)</label>
-            <input type="file" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
+            <label>Autorización Representante y Copia de Identificación Representante Archivo Unificado(PDF)</label>
+            <input type="file" accept="application/pdf" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
           </div>
         )}
         
