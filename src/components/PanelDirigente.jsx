@@ -12,6 +12,7 @@ export default function PanelDirigente() {
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [msg, setMsg] = useState("");
+  const [pdfLoading, setPdfLoading]   = useState(false);
 
   useEffect(() => {
     if (!dirigenteId) {
@@ -54,14 +55,13 @@ export default function PanelDirigente() {
 
   const descargarPDF = async () => {
     try {
+      setPdfLoading(true);
       const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/jugadores/reporte-pdf/${dirigenteId}`);
       const ct = resp.headers.get('content-type') || '';
-
       if (!resp.ok || !ct.includes('application/pdf')) {
         const msg = ct.includes('application/json') ? (await resp.json()).message : await resp.text();
         throw new Error(msg || 'No se pudo generar el PDF');
       }
-
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -71,8 +71,11 @@ export default function PanelDirigente() {
       URL.revokeObjectURL(url);
     } catch (e) {
       setMsg(e.message);
+    } finally {
+      setPdfLoading(false);
     }
   };
+
 
 
   const eliminar = async (id) => {
@@ -130,8 +133,8 @@ export default function PanelDirigente() {
           </table>
         </div>
       )}
-      <button className="btn-enviar" onClick={descargarPDF} style={{ marginTop: 16 }}>
-        📄 Imprimir Reporte de Jugadores PDF
+      <button className="btn-enviar" onClick={descargarPDF} style={{ marginTop: 8 }} disabled={pdfLoading }>
+        {pdfLoading ? '⏳ Generando PDF…' : '📄 Imprimir Reporte de Jugadores PDF'}
       </button>
 
       {/* Modal edición */}
