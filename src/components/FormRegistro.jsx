@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import dayjs from 'dayjs';
+const registroAbierto = Number(import.meta.env.VITE_REGISTRO_ABIERTO) === 1;
 
 const identRegex = /^[A-Za-z0-9\-]+$/;
 const nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
@@ -222,193 +223,235 @@ export default function FormRegistro() {
 
   return (
     <>
-      {/* Loader */}
-      {loading && (
-        <div className="overlay-loader">
-          <div className="ball-loader"></div>
-          <p>Registrando jugador...</p>
-        </div>
-      )}
+     {registroAbierto ? (
+        <>
+          {/* Loader */}
+          {loading && (
+            <div className="overlay-loader">
+              <div className="ball-loader"></div>
+              <p>Registrando jugador...</p>
+            </div>
+          )}
 
-      <form onSubmit={submit} className="form-futbol">
-        <div className="brand-header">
-          <img src="/logo-liga.png" alt="Liga Deportiva Bienestar Familiar de Calderón" className="brand-badge" />
-          <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
-          <p className="brand-subtitle">Acuerdo ministerial N. 0184 – 15 agosto 2023</p>
-          <p className="brand-subtitle brand-subtitle--thin">Nómina de jugadores – 6º campeonato de indorfútbol masculino</p>
-        </div>
+          <form onSubmit={submit} className="form-futbol">
+            <div className="brand-header">
+              <img src="/logo-liga.png" alt="Liga Deportiva Bienestar Familiar de Calderón" className="brand-badge" />
+              <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
+              <p className="brand-subtitle">Acuerdo ministerial N. 0184 – 15 agosto 2023</p>
+              <p className="brand-subtitle brand-subtitle--thin">Nómina de jugadores – 6º campeonato de indorfútbol masculino</p>
+            </div>
 
 
-        {/* Código Dirigente */}
-        <div className="campo">
-          <label>Código de Dirigente</label>
-          <input
-            required
-            value={form.codDirigente}
-            placeholder="Código de dirigente"
-            onChange={e => {
-              // Eliminar espacios (al escribir y pegar)
-              let val = e.target.value.replace(/\s+/g, "");
-              validateCode(val);
-            }}
-            disabled={loading}
-          />
-          {!validCode && form.codDirigente && <p className="error">Código inválido</p>}
-        </div>
+            {/* Código Dirigente */}
+            <div className="campo">
+              <label>Código de Dirigente</label>
+              <input
+                required
+                value={form.codDirigente}
+                placeholder="Código de dirigente"
+                onChange={e => {
+                  // Eliminar espacios (al escribir y pegar)
+                  let val = e.target.value.replace(/\s+/g, "");
+                  validateCode(val);
+                }}
+                disabled={loading}
+              />
+              {!validCode && form.codDirigente && <p className="error">Código inválido</p>}
+            </div>
 
-        <div className="campo">
-          <label>Equipo de fútbol</label>
-          <input readOnly value={form.team} placeholder="Ingrese código de dirigente" className="readonly" />
-        </div>
+            <div className="campo">
+              <label>Equipo de fútbol</label>
+              <input readOnly value={form.team} placeholder="Ingrese código de dirigente" className="readonly" />
+            </div>
 
-        <div className="campo">
-          <label>Nombres</label>
-          <input
-            required
-            value={form.firstName}
-            placeholder="Nombres Jugador"
-            maxLength={100} // máximo 100 caracteres
-            onChange={e => { let val = e.target.value; 
-              // Solo letras y espacios 
-              val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
-              // Quitar espacios al inicio/final 
-              val = val.trimStart(); 
-              // Reemplazar múltiples espacios por uno 
-              val = val.replace(/\s+/g, ' '); 
-              // Convertir a mayúsculas 
-              val = val.toUpperCase(); 
-              setForm(f => ({ ...f, firstName: val })); }}
-            disabled={loading}
-          />
-        </div>
+            <div className="campo">
+              <label>Nombres</label>
+              <input
+                required
+                value={form.firstName}
+                placeholder="Nombres Jugador"
+                maxLength={100} // máximo 100 caracteres
+                onChange={e => { let val = e.target.value; 
+                  // Solo letras y espacios 
+                  val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
+                  // Quitar espacios al inicio/final 
+                  val = val.trimStart(); 
+                  // Reemplazar múltiples espacios por uno 
+                  val = val.replace(/\s+/g, ' '); 
+                  // Convertir a mayúsculas 
+                  val = val.toUpperCase(); 
+                  setForm(f => ({ ...f, firstName: val })); }}
+                disabled={loading}
+              />
+            </div>
 
-        <div className="campo">
-          <label>Apellidos</label>
-          <input
-            required
-            value={form.lastName}
-            placeholder="Apellidos Jugador"
-            maxLength={100} // máximo 100 caracteres
-            onChange={e => { let val = e.target.value; 
-              // Solo letras y espacios 
-              val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
-              // Quitar espacios al inicio/final 
-              val = val.trimStart(); 
-              // Reemplazar múltiples espacios por uno 
-              val = val.replace(/\s+/g, ' '); 
-              // Convertir a mayúsculas 
-              val = val.toUpperCase(); 
-              setForm(f => ({ ...f, lastName: val })); }}
-            disabled={loading}
-          />
-        </div>
+            <div className="campo">
+              <label>Apellidos</label>
+              <input
+                required
+                value={form.lastName}
+                placeholder="Apellidos Jugador"
+                maxLength={100} // máximo 100 caracteres
+                onChange={e => { let val = e.target.value; 
+                  // Solo letras y espacios 
+                  val = val.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, ''); 
+                  // Quitar espacios al inicio/final 
+                  val = val.trimStart(); 
+                  // Reemplazar múltiples espacios por uno 
+                  val = val.replace(/\s+/g, ' '); 
+                  // Convertir a mayúsculas 
+                  val = val.toUpperCase(); 
+                  setForm(f => ({ ...f, lastName: val })); }}
+                disabled={loading}
+              />
+            </div>
 
-        <div className="campo">
-          <label>Fecha nacimiento</label>
-          <input type="date" required value={form.dob} onChange={handleDob} disabled={loading}/>
-        </div>
+            <div className="campo">
+              <label>Fecha nacimiento</label>
+              <input type="date" required value={form.dob} onChange={handleDob} disabled={loading}/>
+            </div>
 
-        <div className="campo">
-          <label>Edad</label>
-          <input readOnly value={ageDisplay} className="readonly" />
-        </div>
+            <div className="campo">
+              <label>Edad</label>
+              <input readOnly value={ageDisplay} className="readonly" />
+            </div>
 
-        <div className="campo">
-          <label>Identificación (cédula/pasaporte)</label>
-          <input
-            required
-            placeholder="Identificación Jugador"
-            value={form.identificacion}
-            maxLength={20}
-            onChange={e => {
-              const val = e.target.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
-              setForm(f => ({ ...f, identificacion: val }));
-            }}
-            disabled={loading}
-          />
-        </div>
+            <div className="campo">
+              <label>Identificación (cédula/pasaporte)</label>
+              <input
+                required
+                placeholder="Identificación Jugador"
+                value={form.identificacion}
+                maxLength={20}
+                onChange={e => {
+                  const val = e.target.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+                  setForm(f => ({ ...f, identificacion: val }));
+                }}
+                disabled={loading}
+              />
+            </div>
 
-        <div className="campo">
-          <label>Número de jugador (1-99)</label>
-          <input
-            type="number"
-            required
-            value={form.numjugador}
-            placeholder="Número Jugador"
-            min={1}
-            max={99}
-            onChange={e => {
-              let val = e.target.value.replace(/\D/g, ''); // solo números
-              if (val.length > 2) val = val.slice(0, 2); // máximo 2 dígitos
-              if (val === '0') val = ''; // no permitir 0
-              setForm(f => ({ ...f, numjugador: val }));
-            }}
-            disabled={loading}
-          />
-        </div>
+            <div className="campo">
+              <label>Número de jugador (1-99)</label>
+              <input
+                type="number"
+                required
+                value={form.numjugador}
+                placeholder="Número Jugador"
+                min={1}
+                max={99}
+                onChange={e => {
+                  let val = e.target.value.replace(/\D/g, ''); // solo números
+                  if (val.length > 2) val = val.slice(0, 2); // máximo 2 dígitos
+                  if (val === '0') val = ''; // no permitir 0
+                  setForm(f => ({ ...f, numjugador: val }));
+                }}
+                disabled={loading}
+              />
+            </div>
 
-        <p style={{ fontSize: 20, marginTop: 15 }}>
-          Nota: si el documento de identificación es <b>pasaporte</b>, sube la misma Imagen/Foto del Pasaporte en “Cédula frontal” y “Cédula trasera”.
-        </p>
+            <p style={{ fontSize: 20, marginTop: 15 }}>
+              Nota: si el documento de identificación es <b>pasaporte</b>, sube la misma Imagen/Foto del Pasaporte en “Cédula frontal” y “Cédula trasera”.
+            </p>
 
-        {/* Cédula/Pasaporte - Parte Frontal */}
-        <div className="campo">
-          <label>Cédula/Pasaporte - Parte Fronta (IMAGEN/FOTO)</label>
-          <input
-            type="file"
-            required
-            accept="image/*"
-            // capture="environment" // opcional: abre cámara trasera en móviles
-            onChange={e => handleImageOnly(e, setIdFile, 'Cédula frontal')}
-            disabled={loading}
-          />
-        </div>
+            {/* Cédula/Pasaporte - Parte Frontal */}
+            <div className="campo">
+              <label>Cédula/Pasaporte - Parte Fronta (IMAGEN/FOTO)</label>
+              <input
+                type="file"
+                required
+                accept="image/*"
+                // capture="environment" // opcional: abre cámara trasera en móviles
+                onChange={e => handleImageOnly(e, setIdFile, 'Cédula frontal')}
+                disabled={loading}
+              />
+            </div>
 
-        {/* Foto Cédula/Pasaporte - Parte Trasera */}
-        <div className="campo">
-          <label>Foto Cédula/Pasaporte - Parte Trasera (IMAGEN/FOTO)</label>
-          <input
-            type="file"
-            required
-            accept="image/*"
-            // capture="environment"
-            onChange={e => handleImageOnly(e, setBackImage, 'Cédula trasera')}
-            disabled={loading}
-          />
-        </div>
+            {/* Foto Cédula/Pasaporte - Parte Trasera */}
+            <div className="campo">
+              <label>Foto Cédula/Pasaporte - Parte Trasera (IMAGEN/FOTO)</label>
+              <input
+                type="file"
+                required
+                accept="image/*"
+                // capture="environment"
+                onChange={e => handleImageOnly(e, setBackImage, 'Cédula trasera')}
+                disabled={loading}
+              />
+            </div>
 
-        {/* Selfie Jugador */}
-        <div className="campo">
-          <label>Selfie Jugador (IMAGEN/FOTO)</label>
-          <input
-            type="file"
-            required
-            accept="image/*"
-            // capture="user" // opcional: cámara frontal
-            onChange={e => handleImageOnly(e, setSelfieFile, 'Selfie')}
-            disabled={loading}
-          />
-        </div>
-        {/* Autorización condicional */}
-        {(age !== null && age >= 14 && age < 18) && (
-          <div className="campo">
-            <label>Autorización Representante y Copia de Identificación Representante Archivo Unificado(PDF)</label>
-            <input type="file" accept="application/pdf" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
+            {/* Selfie Jugador */}
+            <div className="campo">
+              <label>Selfie Jugador (IMAGEN/FOTO)</label>
+              <input
+                type="file"
+                required
+                accept="image/*"
+                // capture="user" // opcional: cámara frontal
+                onChange={e => handleImageOnly(e, setSelfieFile, 'Selfie')}
+                disabled={loading}
+              />
+            </div>
+            {/* Autorización condicional */}
+            {(age !== null && age >= 14 && age < 18) && (
+              <div className="campo">
+                <label>Autorización Representante y Copia de Identificación Representante Archivo Unificado(PDF)</label>
+                <input type="file" accept="application/pdf" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
+              </div>
+            )}
+            
+
+            <button type="submit" className="btn-enviar" disabled={loading}>Registrar Jugador 🏅</button>
+
+          </form>
+
+          {/* Modal respuesta */}
+          {showModal && (
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <p>{modalMessage}</p>
+                <button onClick={() => setShowModal(false)} className="btn-cerrar">Cerrar</button>
+              </div>
+            </div>
+          )}
+        </>
+      ):(
+        <div
+          className="form-futbol"
+          style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto' }}
+        >
+          <div className="brand-header" style={{ marginBottom: 16 }}>
+            <img
+              src="/logo-liga.png"
+              alt="Liga Deportiva Bienestar Familiar de Calderón"
+              className="brand-badge"
+              style={{ width: 96, height: 96, objectFit: 'contain' }}
+            />
+            <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
+            <p className="brand-subtitle">
+              Nómina de jugadores – 6º campeonato de indorfútbol masculino
+            </p>
           </div>
-        )}
-        
 
-        <button type="submit" className="btn-enviar" disabled={loading}>Registrar Jugador 🏅</button>
+          <img
+            src="/registro-cerrado.png"
+            alt="Registro cerrado"
+            style={{
+              display: 'block',
+              margin: '0 auto',
+              width: '100%',
+              maxWidth: 520,
+              borderRadius: 12,
+              boxShadow: '0 6px 20px rgba(0,0,0,.15)',
+            }}
+            loading="lazy"
+          />
 
-      </form>
-
-      {/* Modal respuesta */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <p>{modalMessage}</p>
-            <button onClick={() => setShowModal(false)} className="btn-cerrar">Cerrar</button>
-          </div>
+          <h2 style={{ marginTop: 18 }}>Registro de jugadores cerrado</h2>
+          <p style={{ fontSize: 18, lineHeight: 1.6, marginTop: 8 }}>
+            El límite de fecha de registro de jugadores ha finalizado; el administrador notificará las nuevas
+            fechas para registros.
+          </p>
         </div>
       )}
     </>
