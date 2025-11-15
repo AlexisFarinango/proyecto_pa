@@ -21,7 +21,7 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
   const [form, setForm] = useState({
     firstName: jugador.firstName,
     lastName: jugador.lastName,
-    dob: dayjs(jugador.dob).format("YYYY-MM-DD"),
+    dob: jugador.dob.slice(0, 10),
     identificacion: jugador.identificacion,
     numjugador: jugador.numjugador
   });

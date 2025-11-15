@@ -50,7 +50,7 @@ export default function VerJugadores() {
                 <tr key={j._id}>
                   <td>{j.firstName}</td>
                   <td>{j.lastName}</td>
-                  <td>{new Date(j.dob).toLocaleDateString()}</td>
+                  <td>{j.dob ? j.dob.slice(0,10).split('-').reverse().join('/') : ''}</td>
                   <td>{j.age}</td>
                   <td>{j.identificacion}</td>
                   <td>{j.numjugador}</td>
