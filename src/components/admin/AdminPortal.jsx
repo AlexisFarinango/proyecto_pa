@@ -7,7 +7,51 @@ export default function AdminPortal() {
   const nav = useNavigate();
   const [tab, setTab] = useState("dirigentes");
   const [downloading, setDownloading] = useState(false); 
+  const [downloading2, setDownloading2] = useState(false); 
   const auth = sessionStorage.getItem("adminBasic");
+
+  const descargarAutorizacionPDF = async () => {
+    setDownloading2(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/admin/autorizaciones/consolidado`,
+        {
+          headers: { Authorization: `Basic ${auth}` },
+          signal: controller.signal,
+        }
+      );
+
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          throw new Error("No autorizado. Inicia sesión como admin.");
+        }
+        if (resp.status === 404) {
+          throw new Error("No hay autorizaciones para consolidar.");
+        }
+        throw new Error(`No se pudo generar el PDF (HTTP ${resp.status})`);
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Autorizaciones_consolidadas.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (e.name === "AbortError") {
+        alert("Tiempo de espera agotado al generar el PDF.");
+      } else {
+        alert(e.message || "Error descargando el PDF de autorizaciones");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setDownloading2(false);
+    }
+  };
 
   const descargarExcel = async () => {
     setDownloading(true);
@@ -74,6 +118,13 @@ export default function AdminPortal() {
         </button>
         <button className="btn-enviar" onClick={descargarExcel} disabled={downloading}>
           {downloading ? "Generando…" : "Exportar Excel"}
+        </button>
+        <button
+          className="btn-enviar"
+          onClick={descargarAutorizacionPDF}
+          disabled={downloading2}
+        >
+          {downloading2 ? "Generando PDF…" : "Autorizaciones PDF"}
         </button>
       </div>
 
