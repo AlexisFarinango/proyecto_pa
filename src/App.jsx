@@ -7,6 +7,8 @@ import LoginDirigente from "./components/LoginDirigente";
 import PanelDirigente from "./components/PanelDirigente";
 import AdminLogin from "./components/admin/AdminLogin";
 import AdminPortal from "./components/admin/AdminPortal";
+import FixturePublic from "./components/FixturePublic";
+
 
 export default function App() {
   return (
@@ -24,6 +26,10 @@ export default function App() {
         <NavLink to="/admin" className={({isActive}) => `nav-btn${isActive ? ' is-active' : ''}`}>
           Admin
         </NavLink>
+        <NavLink to="/fixture" className={({isActive}) => `nav-btn${isActive ? ' is-active' : ''}`}>
+          Programación de partidos
+        </NavLink>
+
       </nav>
 
       <div style={{ padding: "20px" }}>
@@ -34,6 +40,7 @@ export default function App() {
           <Route path="/panel-dirigente" element={<PanelDirigente />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/portal" element={<AdminPortal />} />
+          <Route path="/fixture" element={<FixturePublic />} />
         </Routes>
       </div>
     </Router>

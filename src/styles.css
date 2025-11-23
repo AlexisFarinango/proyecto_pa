@@ -360,3 +360,73 @@ body.modal-open {
   font-weight:600;
   opacity:.95;
 }
+
+
+/* Contenedor de todas las fechas */
+.fixture-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* Tarjeta de cada fecha */
+.fixture-card {
+  flex: 1 1 100%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #000;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* En pantallas medianas/grandes: 2 tarjetas por fila */
+@media (min-width: 900px) {
+  .fixture-card {
+    flex: 1 1 calc(50% - 16px);
+  }
+}
+
+.fixture-card__header {
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.fixture-card__header h3 {
+  margin: 0;
+  color: #c62828;
+}
+
+.fixture-card__jornada {
+  margin: 4px 0 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Tabla dentro de la tarjeta */
+.fixture-card__tableWrapper {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+
+.fixture-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.fixture-table th,
+.fixture-table td {
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.fixture-table thead th {
+  border-bottom: 1px solid #ddd;
+  font-weight: 700;
+}
+
+.fixture-table tbody tr:nth-child(odd) {
+  background: #fafafa;
+}

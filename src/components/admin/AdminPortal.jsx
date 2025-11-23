@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import DirigentesTab from "./DirigentesTab";
 import EquiposTab from "./EquiposTab";
 import { useNavigate } from "react-router-dom";
+import FixtureAdmin from "./FixtureAdmin"; // 👈 NUEVO
+
 
 export default function AdminPortal() {
   const nav = useNavigate();
@@ -116,6 +118,13 @@ export default function AdminPortal() {
         >
           Equipos
         </button>
+        <button
+          className="btn-enviar"
+          aria-pressed={tab === "fixture"}
+          onClick={() => setTab("fixture")}
+        >
+          Administrar fixture
+        </button>
         <button className="btn-enviar" onClick={descargarExcel} disabled={downloading}>
           {downloading ? "Generando…" : "Exportar Excel"}
         </button>
@@ -130,6 +139,8 @@ export default function AdminPortal() {
 
       {tab === "dirigentes" && <DirigentesTab />}
       {tab === "equipos" && <EquiposTab />}
+      {tab === "fixture" && <FixtureAdmin />}
+
     </div>
   );
 }
