@@ -21,13 +21,15 @@ export default function FixtureAdmin() {
   const auth = sessionStorage.getItem("adminBasic");
   const [modalMessage, setModalMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [downloadingHojaIdx, setDownloadingHojaIdx] = useState(null); // por partido
+  const [downloadingFecha, setDownloadingFecha] = useState(false);
 
   function toInputDate(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
-}
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  }
 
   const showMsg = (text) => {
     setModalMessage(text);
@@ -74,7 +76,97 @@ export default function FixtureAdmin() {
   useEffect(() => {
     loadFixture();
   }, []);
-  
+
+  const descargarHojaVocalia = async (idFecha, idxPartido) => {
+    setDownloadingHojaIdx(idxPartido);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/fixture/hoja-vocalia/${idFecha}/${idxPartido}`,
+        {
+          headers: { Authorization: `Basic ${auth}` },
+          signal: controller.signal,
+        }
+      );
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(
+          data.message ||
+          `Error generando hoja de vocalía (${resp.status})`
+        );
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Hoja_vocalia_${idFecha}_${idxPartido + 1}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (e.name === "AbortError") {
+        showMsg("⏱️ Tiempo de espera agotado al generar la hoja de vocalía.");
+      } else {
+        showMsg(`❌ ${e.message || "Error descargando hoja de vocalía"}`);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setDownloadingHojaIdx(null);
+    }
+  };
+
+
+
+  const descargarHojasVocaliaFecha = async (idFecha) => {
+    if (!idFecha) return;
+
+    setDownloadingFecha(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/fixture/hojas-vocalia/${idFecha}`,
+        {
+          headers: { Authorization: `Basic ${auth}` },
+          signal: controller.signal,
+        }
+      );
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(
+          data.message ||
+          `Error generando hojas de vocalía (${resp.status})`
+        );
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Hojas_vocalia_fecha_${idFecha}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (e.name === "AbortError") {
+        showMsg("⏱️ Tiempo de espera agotado al generar las hojas de vocalía.");
+      } else {
+        showMsg(`❌ ${e.message || "Error descargando hojas de vocalía"}`);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setDownloadingFecha(false);
+    }
+  };
+
 
   // Seleccionar una fecha para edición
   const selectFecha = (f) => {
@@ -399,6 +491,18 @@ export default function FixtureAdmin() {
 
                     <button
                       type="button"
+                      className="btn-enviar"
+                      onClick={() => descargarHojaVocalia(editing._id, idx)}
+                      disabled={saving || downloadingHojaIdx === idx}
+                    >
+                      {downloadingHojaIdx === idx
+                        ? "Generando…"
+                        : "📝 Hoja de vocalía"}
+                    </button>
+
+
+                    <button
+                      type="button"
                       className="btn-cerrar"
                       onClick={() => removePartido(idx)}
                     >
@@ -462,24 +566,34 @@ export default function FixtureAdmin() {
                     Eliminar fecha
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="btn-enviar"
+                  onClick={() => descargarHojasVocaliaFecha(selectedId)}
+                  disabled={saving || downloadingFecha || !selectedId}
+                >
+                  {downloadingFecha
+                    ? "Generando…"
+                    : "🧾 Descargar todas las hojas de vocalía"}
+                </button>
               </div>
             </>
           )}
         </div>
       </div>
-        {showModal && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <p>{modalMessage}</p>
-              <button
-                onClick={() => setShowModal(false)}
-                className="btn-cerrar"
-              >
-                Cerrar
-              </button>
-            </div>
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <p>{modalMessage}</p>
+            <button
+              onClick={() => setShowModal(false)}
+              className="btn-cerrar"
+            >
+              Cerrar
+            </button>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }
