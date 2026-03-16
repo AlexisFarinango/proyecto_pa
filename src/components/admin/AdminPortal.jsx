@@ -8,8 +8,9 @@ import FixtureAdmin from "./FixtureAdmin"; // 👈 NUEVO
 export default function AdminPortal() {
   const nav = useNavigate();
   const [tab, setTab] = useState("dirigentes");
-  const [downloading, setDownloading] = useState(false); 
-  const [downloading2, setDownloading2] = useState(false); 
+  const [downloading, setDownloading] = useState(false);
+  const [downloading2, setDownloading2] = useState(false);
+  const [downloadingDeleted, setDownloadingDeleted] = useState(false);
   const auth = sessionStorage.getItem("adminBasic");
 
   const descargarAutorizacionPDF = async () => {
@@ -64,7 +65,7 @@ export default function AdminPortal() {
         headers: { Authorization: `Basic ${auth}` },
         signal: controller.signal,
       });
-      if (!resp.ok){
+      if (!resp.ok) {
         if (resp.status === 401) throw new Error("No autorizado. Inicia sesión como admin.");
         if (resp.status === 413) throw new Error("Archivo demasiado grande.");
         throw new Error(`No se pudo generar el Excel (HTTP ${resp.status})`);
@@ -77,7 +78,7 @@ export default function AdminPortal() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-        if (e.name === "AbortError") {
+      if (e.name === "AbortError") {
         alert("Tiempo de espera agotado. Vuelve a intentar o usa la opción sin imágenes.");
       } else {
         alert(e.message || "Error descargando el Excel");
@@ -85,6 +86,43 @@ export default function AdminPortal() {
     } finally {
       clearTimeout(timeoutId);
       setDownloading(false);                                // <-- NUEVO
+    }
+  };
+
+  const descargarExcelEliminados = async () => {
+    setDownloadingDeleted(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/users/export-eliminados`, {
+        headers: { Authorization: `Basic ${auth}` },
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        if (resp.status === 401) throw new Error("No autorizado. Inicia sesión como admin.");
+        if (resp.status === 404) throw new Error("No existen jugadores eliminados para exportar.");
+        if (resp.status === 413) throw new Error("Archivo demasiado grande.");
+        throw new Error(`No se pudo generar el Excel de eliminados (HTTP ${resp.status})`);
+      }
+
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "jugadores_eliminados.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (e.name === "AbortError") {
+        alert("Tiempo de espera agotado al generar el Excel de eliminados.");
+      } else {
+        alert(e.message || "Error descargando el Excel de jugadores eliminados");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setDownloadingDeleted(false);
     }
   };
 
@@ -127,6 +165,13 @@ export default function AdminPortal() {
         </button>
         <button className="btn-enviar" onClick={descargarExcel} disabled={downloading}>
           {downloading ? "Generando…" : "Exportar Excel"}
+        </button>
+        <button
+          className="btn-enviar"
+          onClick={descargarExcelEliminados}
+          disabled={downloadingDeleted}
+        >
+          {downloadingDeleted ? "Generando…" : "Exportar Excel Jugadores Eliminados"}
         </button>
         <button
           className="btn-enviar"
