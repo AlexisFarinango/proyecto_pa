@@ -132,6 +132,7 @@ export default function EquiposTab() {
         <table className="table">
           <thead>
             <tr>
+              <th className="col-num">N°</th>
               <th>Nombre</th>
               <th>Código</th>
               <th>Dirigente</th>
@@ -139,8 +140,9 @@ export default function EquiposTab() {
             </tr>
           </thead>
           <tbody>
-            {list.map(e => (
+            {list.map((e, i) => (
               <tr key={e._id}>
+                <td className="col-num">{i + 1}</td>
                 <td>{e.nombre}</td>
                 <td className="break-cell">{e.codigo || "-"}</td>
                 <td>{e.dirigente?.usuario || "N/A"}</td>

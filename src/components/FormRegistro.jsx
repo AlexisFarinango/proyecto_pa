@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
 import dayjs from 'dayjs';
+import AutorizacionDigital, {
+  autorizacionVacia,
+  validarAutorizacion,
+  agregarAutorizacionAFormData,
+} from './autorizacion/AutorizacionDigital';
 const registroAbierto = Number(import.meta.env.VITE_REGISTRO_ABIERTO) === 1;
 
 const identRegex = /^[A-Za-z0-9\-]+$/;
@@ -21,7 +26,9 @@ export default function FormRegistro() {
   const [idFile, setIdFile] = useState(null);
   const [idBackImage, setBackImage] = useState(null);
   const [selfieFile, setSelfieFile] = useState(null);
-  const [autorizacionFile, setAutorizacionFile] = useState(null);
+  const [autorizacion, setAutorizacion] = useState(autorizacionVacia);
+  // Cambia al limpiar el formulario para reiniciar la sección de firma
+  const [autKey, setAutKey] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
@@ -106,7 +113,8 @@ export default function FormRegistro() {
     setIdFile(null);
     setBackImage(null);
     setSelfieFile(null);
-    setAutorizacionFile(null);
+    setAutorizacion(autorizacionVacia());
+    setAutKey(k => k + 1);
     setAge(null);
     setAgeDisplay('');
     setValidCode(false);
@@ -134,8 +142,10 @@ export default function FormRegistro() {
       return showMsg('❌ Número inválido (1-99)');
 
     const requiereAut = years >= 14 && years < 18;
-    if (requiereAut && !autorizacionFile)
-      return showMsg('❌ Debe adjuntar autorización de padre/madre/representante');
+    if (requiereAut) {
+      const errAut = validarAutorizacion(autorizacion, form.identificacion);
+      if (errAut) return showMsg(`❌ ${errAut}`);
+    }
 
     // ---- Envío
     setLoading(true);
@@ -144,11 +154,11 @@ export default function FormRegistro() {
     fd.append('idImage', idFile);
     fd.append('idBackImage', idBackImage);
     fd.append('selfieImage', selfieFile);
-    if (autorizacionFile) fd.append('autorizacion', autorizacionFile);
+    if (requiereAut) agregarAutorizacionAFormData(fd, autorizacion);
 
-    // timeout opcional para fetch (20s)
+    // timeout para fetch (20s; 60s si hay autorización porque se sube más y se genera el PDF)
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 20000);
+    const timeoutId  = setTimeout(() => controller.abort(), requiereAut ? 60000 : 20000);
 
     try {
       const resp = await fetch(
@@ -191,7 +201,7 @@ export default function FormRegistro() {
           message = 'Archivo demasiado grande. Máximo 10MB por archivo.';
           break;
         case 415:
-          message = 'Formato de archivo no permitido. Usa imagen o PDF (solo autorización).';
+          message = 'Formato de archivo no permitido. Usa solo imágenes (JPG, PNG, etc.).';
           break;
         case 500:
           message = data?.detail || data?.message || 'Error interno del servidor.';
@@ -238,7 +248,7 @@ export default function FormRegistro() {
               <img src="/logo-liga.png" alt="Liga Deportiva Bienestar Familiar de Calderón" className="brand-badge" />
               <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
               <p className="brand-subtitle">Acuerdo ministerial N. 0184 – 15 agosto 2023</p>
-              <p className="brand-subtitle brand-subtitle--thin">Nómina de jugadores – 6º campeonato de indorfútbol masculino</p>
+              <p className="brand-subtitle brand-subtitle--thin">Nómina de jugadores – 7º campeonato de indorfútbol masculino</p>
             </div>
 
 
@@ -392,12 +402,21 @@ export default function FormRegistro() {
                 disabled={loading}
               />
             </div>
-            {/* Autorización condicional */}
+            {/* Autorización digital condicional (14 a 17 años) */}
             {(age !== null && age >= 14 && age < 18) && (
-              <div className="campo">
-                <label>Autorización Representante y Copia de Identificación Representante Archivo Unificado(PDF)</label>
-                <input type="file" accept="application/pdf" onChange={e => setAutorizacionFile(e.target.files[0])} disabled={loading} required />
-              </div>
+              <AutorizacionDigital
+                key={autKey}
+                jugador={{
+                  nombre: `${form.firstName} ${form.lastName}`,
+                  identificacion: form.identificacion,
+                  edad: age,
+                  equipo: form.team,
+                }}
+                value={autorizacion}
+                onChange={setAutorizacion}
+                onError={showMsg}
+                disabled={loading}
+              />
             )}
             
 
@@ -429,7 +448,7 @@ export default function FormRegistro() {
             />
             <h1 className="brand-title">Liga Deportiva Bienestar Familiar de Calderón</h1>
             <p className="brand-subtitle">
-              Nómina de jugadores – 6º campeonato de indorfútbol masculino
+              Nómina de jugadores – 7º campeonato de indorfútbol masculino
             </p>
           </div>
 

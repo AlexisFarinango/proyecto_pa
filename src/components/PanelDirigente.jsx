@@ -138,6 +138,7 @@ export default function PanelDirigente() {
           >
             <thead>
               <tr>
+                <th className="col-num">N°</th>
                 <th>Nombres</th>
                 <th>Apellidos</th>
                 <th>Fecha Nac.</th>
@@ -149,8 +150,9 @@ export default function PanelDirigente() {
               </tr>
             </thead>
             <tbody>
-              {jugadores.map((j) => (
+              {jugadores.map((j, i) => (
                 <tr key={j._id}>
+                  <td className="col-num">{i + 1}</td>
                   <td>{j.firstName}</td>
                   <td>{j.lastName}</td>
                   <td>

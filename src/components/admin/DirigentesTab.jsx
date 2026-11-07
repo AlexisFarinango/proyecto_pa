@@ -130,6 +130,7 @@ export default function DirigentesTab() {
         <table className="table">
           <thead>
             <tr>
+              <th className="col-num">N°</th>
               <th>Usuario</th>
               <th>Contraseña</th>
               <th>Equipo</th>
@@ -137,8 +138,9 @@ export default function DirigentesTab() {
             </tr>
           </thead>
           <tbody>
-            {list.map(d => (
+            {list.map((d, i) => (
               <tr key={d._id}>
+                <td className="col-num">{i + 1}</td>
                 <td>{d.usuario}</td>
                 <td className="break-cell">{d.password}</td>
                 <td>{d.nombre}</td>

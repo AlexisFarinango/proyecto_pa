@@ -1,5 +1,15 @@
 import React, { useState } from "react";
 import dayjs from "dayjs";
+import AutorizacionDigital, {
+  autorizacionVacia,
+  validarAutorizacion,
+  agregarAutorizacionAFormData,
+} from "./autorizacion/AutorizacionDigital";
+import { urlArchivo } from "../utils/archivos";
+
+// Deshabilitado por ahora: el dirigente no puede firmar una nueva autorización.
+// Cambiar a true para volver a mostrar el botón "Firmar nueva autorización".
+const PERMITIR_NUEVA_FIRMA = false;
 
 const nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
 const identRegex = /^[A-Za-z0-9\-]+$/;
@@ -29,14 +39,23 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
   const [idImage, setIdImage] = useState(null);
   const [idBackImage, setIdBackImage] = useState(null);
   const [selfieImage, setSelfie] = useState(null);
-  const [autorizacion, setAutorizacion] = useState(null);
+
+  // Firma de una nueva autorización digital (solo 14 a 17 años)
+  const [firmando, setFirmando] = useState(false);
+  const [autorizacion, setAutorizacion] = useState(autorizacionVacia);
 
   const [preview, setPreview] = useState({
     idImageUrl: jugador.idImageUrl,
     idBackImageUrl: jugador.idBackImageUrl,
-    selfieImageUrl: jugador.selfieImageUrl,
-    autorizacionUrl: jugador.autorizacionUrl || null
+    selfieImageUrl: jugador.selfieImageUrl
   });
+
+  const edadActual = form.dob && dayjs(form.dob, "YYYY-MM-DD", true).isValid()
+    ? dayjs().diff(dayjs(form.dob), "year")
+    : jugador.age;
+  const esMenor = edadActual >= 14 && edadActual < 18;
+  const rep = jugador.representante;
+  const info = jugador.autorizacionInfo;
 
   const [loading, setLoading] = useState(false);
 
@@ -55,8 +74,6 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
     if (f && f.type.startsWith("image/")) {
       const url = URL.createObjectURL(f);
       setPreview(p => ({ ...p, [keyPreview]: url }));
-    } else if (f) {
-      setPreview(p => ({ ...p, [keyPreview]: "PDF adjunto" }));
     }
   };
 
@@ -79,15 +96,21 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
 
       if (newAge < 14) return showError("No se permiten menores de 14 años");
 
-      // Si 14–17, exigir autorización si no hay en BD ni se cargó nueva
+      // Si 14–17, exigir autorización si no hay en BD ni se está firmando una nueva
       const requiereAut = newAge >= 14 && newAge < 18;
-      if (requiereAut) {
-        const yaTieneAut = !!jugador.autorizacionUrl;
-        const cargoNuevaAut = !!autorizacion;
-        if (!yaTieneAut && !cargoNuevaAut) {
-          return showError("Autorización requerida (14-17 años)");
+      if (requiereAut && !jugador.autorizacionUrl && !firmando) {
+        if (!PERMITIR_NUEVA_FIRMA) {
+          return showError("Autorización requerida (14-17 años): este jugador no tiene autorización firmada. Contacte al administrador.");
         }
+        setFirmando(true);
+        return showError("Autorización requerida (14-17 años): el representante debe firmarla abajo.");
       }
+    }
+
+    const enviarFirma = firmando && esMenor;
+    if (enviarFirma) {
+      const errAut = validarAutorizacion(autorizacion, form.identificacion);
+      if (errAut) return showError(errAut);
     }
 
     const fd = new FormData();
@@ -100,7 +123,7 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
     if (idImage) fd.append("idImage", idImage);
     if (idBackImage) fd.append("idBackImage", idBackImage);
     if (selfieImage) fd.append("selfieImage", selfieImage);
-    if (autorizacion) fd.append("autorizacion", autorizacion);
+    if (enviarFirma) agregarAutorizacionAFormData(fd, autorizacion);
 
     setLoading(true);
     try {
@@ -185,18 +208,65 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
               <input type="file" onChange={onChangeFile(setSelfie, "selfieImageUrl")} />
             </div>
 
-            <div>
-              <label>Autorización (img o PDF)</label>
-              <div className="img-box">
-                {preview.autorizacionUrl
-                  ? (typeof preview.autorizacionUrl === "string" && preview.autorizacionUrl.startsWith("http"))
-                      ? <a href={preview.autorizacionUrl} target="_blank" rel="noreferrer">Ver archivo actual</a>
-                      : <span>{preview.autorizacionUrl}</span>
-                  : <span>Sin archivo</span>}
-              </div>
-              <input type="file" onChange={onChangeFile(setAutorizacion, "autorizacionUrl")} />
-            </div>
           </div>
+
+          {/* Autorización del representante (14 a 17 años) */}
+          {(esMenor || jugador.autorizacionUrl) && (
+            <div className="aut-resumen">
+              <h4 style={{ margin: "0 0 8px" }}>Autorización del representante</h4>
+              {jugador.autorizacionUrl ? (
+                <>
+                  <a href={urlArchivo(jugador.autorizacionUrl)} target="_blank" rel="noreferrer">📄 Ver autorización firmada</a>
+                  {rep?.nombre && (
+                    <p style={{ margin: "8px 0 0" }}>
+                      <b>{rep.nombre}</b> · C.I. {rep.cedula} · {rep.parentesco} · Tel. {rep.telefono}
+                      {info?.firmadoEn && <><br />Firmada el {dayjs(info.firmadoEn).format("DD/MM/YYYY HH:mm")} (formato v{info.plantillaVersion})</>}
+                    </p>
+                  )}
+                  {(rep?.cedulaImageUrl || rep?.fotoImageUrl) && (
+                    <p style={{ margin: "6px 0 0" }}>
+                      {rep.cedulaImageUrl && <a href={urlArchivo(rep.cedulaImageUrl)} target="_blank" rel="noreferrer">Cédula del representante</a>}
+                      {rep.cedulaImageUrl && rep.fotoImageUrl && " · "}
+                      {rep.fotoImageUrl && <a href={urlArchivo(rep.fotoImageUrl)} target="_blank" rel="noreferrer">Foto del representante</a>}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="error" style={{ margin: 0 }}>Este jugador no tiene autorización firmada.</p>
+              )}
+
+              {PERMITIR_NUEVA_FIRMA && esMenor && (
+                <button
+                  type="button"
+                  className="btn-cerrar"
+                  onClick={() => setFirmando(f => !f)}
+                  disabled={loading}
+                >
+                  {firmando ? "Cancelar nueva firma" : "✍️ Firmar nueva autorización"}
+                </button>
+              )}
+              {firmando && jugador.autorizacionUrl && (
+                <p style={{ margin: "8px 0 0", fontSize: ".9rem" }}>
+                  Al guardar, la nueva autorización reemplazará a la actual.
+                </p>
+              )}
+            </div>
+          )}
+
+          {firmando && esMenor && (
+            <AutorizacionDigital
+              jugador={{
+                nombre: `${form.firstName} ${form.lastName}`,
+                identificacion: form.identificacion,
+                edad: edadActual,
+                equipo: jugador.team,
+              }}
+              value={autorizacion}
+              onChange={setAutorizacion}
+              onError={showError}
+              disabled={loading}
+            />
+          )}
 
           <div className="modal-actions">
             <button className="btn-enviar" onClick={guardar} disabled={loading}>

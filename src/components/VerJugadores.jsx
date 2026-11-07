@@ -42,12 +42,13 @@ export default function VerJugadores() {
           <table style={{ width: "100%", background: "#fff", color: "#000", borderRadius: 8 }}>
             <thead>
               <tr>
-                <th>Nombres</th><th>Apellidos</th><th>Fecha Nac.</th><th>Edad</th><th>Identificación</th><th>Número</th><th>Equipo</th>
+                <th className="col-num">N°</th><th>Nombres</th><th>Apellidos</th><th>Fecha Nac.</th><th>Edad</th><th>Identificación</th><th>Número</th><th>Equipo</th>
               </tr>
             </thead>
             <tbody>
-              {jugadores.map(j => (
+              {jugadores.map((j, i) => (
                 <tr key={j._id}>
+                  <td className="col-num">{i + 1}</td>
                   <td>{j.firstName}</td>
                   <td>{j.lastName}</td>
                   <td>{j.dob ? j.dob.slice(0,10).split('-').reverse().join('/') : ''}</td>
