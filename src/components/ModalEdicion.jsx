@@ -210,6 +210,26 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
 
           </div>
 
+          {/* Cambio de equipo (PASE) */}
+          {jugador.cambioEquipo?.jugoOtroEquipo !== undefined && jugador.cambioEquipo?.jugoOtroEquipo !== null && (
+            <div className="aut-resumen">
+              <h4 style={{ margin: "0 0 8px" }}>Cambio de equipo</h4>
+              {jugador.cambioEquipo.jugoOtroEquipo ? (
+                <p style={{ margin: 0 }}>
+                  Participó en otro club de la liga el campeonato anterior.
+                  <br />
+                  Club deportivo anterior: <b>{jugador.cambioEquipo.clubAnterior || "No registrado"}</b>
+                  <br />
+                  {jugador.cambioEquipo.paseUrl
+                    ? <a href={urlArchivo(jugador.cambioEquipo.paseUrl)} target="_blank" rel="noreferrer">📄 Ver PASE</a>
+                    : <span className="error">sin PASE adjunto</span>}
+                </p>
+              ) : (
+                <p style={{ margin: 0 }}>No participó en otro club de la liga el campeonato anterior.</p>
+              )}
+            </div>
+          )}
+
           {/* Autorización del representante (14 a 17 años) */}
           {(esMenor || jugador.autorizacionUrl) && (
             <div className="aut-resumen">

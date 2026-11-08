@@ -5,6 +5,7 @@ import AutorizacionDigital, {
   validarAutorizacion,
   agregarAutorizacionAFormData,
 } from './autorizacion/AutorizacionDigital';
+import { ACCEPT_IMAGEN_PDF, normalizarImagenOPdf } from '../utils/archivos';
 const registroAbierto = Number(import.meta.env.VITE_REGISTRO_ABIERTO) === 1;
 
 const identRegex = /^[A-Za-z0-9\-]+$/;
@@ -29,6 +30,12 @@ export default function FormRegistro() {
   const [autorizacion, setAutorizacion] = useState(autorizacionVacia);
   // Cambia al limpiar el formulario para reiniciar la sección de firma
   const [autKey, setAutKey] = useState(0);
+  // Cambio de equipo: ¿jugó en otro club de la liga el campeonato anterior? ('SI' | 'NO')
+  const [jugoOtroEquipo, setJugoOtroEquipo] = useState('');
+  const [clubAnterior, setClubAnterior] = useState('');
+  const [paseFile, setPaseFile] = useState(null);
+  // Declaración final obligatoria
+  const [declaracion, setDeclaracion] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
@@ -115,6 +122,10 @@ export default function FormRegistro() {
     setSelfieFile(null);
     setAutorizacion(autorizacionVacia());
     setAutKey(k => k + 1);
+    setJugoOtroEquipo('');
+    setClubAnterior('');
+    setPaseFile(null);
+    setDeclaracion(false);
     setAge(null);
     setAgeDisplay('');
     setValidCode(false);
@@ -141,11 +152,21 @@ export default function FormRegistro() {
     if (!form.numjugador || isNaN(form.numjugador) || form.numjugador < 1 || form.numjugador > 99)
       return showMsg('❌ Número inválido (1-99)');
 
+    if (!jugoOtroEquipo)
+      return showMsg('❌ Indique si participó en otro club de la liga en el campeonato anterior');
+    if (jugoOtroEquipo === 'SI' && clubAnterior.trim().length < 2)
+      return showMsg('❌ Ingrese el nombre del club deportivo al que perteneció previamente');
+    if (jugoOtroEquipo === 'SI' && !paseFile)
+      return showMsg('❌ Adjunte el PASE realizado por el dirigente del club deportivo previo');
+
     const requiereAut = years >= 14 && years < 18;
     if (requiereAut) {
       const errAut = validarAutorizacion(autorizacion, form.identificacion);
       if (errAut) return showMsg(`❌ ${errAut}`);
     }
+
+    if (!declaracion)
+      return showMsg('❌ Debe aceptar la declaración de veracidad de la información');
 
     // ---- Envío
     setLoading(true);
@@ -154,11 +175,17 @@ export default function FormRegistro() {
     fd.append('idImage', idFile);
     fd.append('idBackImage', idBackImage);
     fd.append('selfieImage', selfieFile);
+    fd.append('jugoOtroEquipo', jugoOtroEquipo);
+    if (jugoOtroEquipo === 'SI') {
+      fd.append('clubAnterior', clubAnterior.trim());
+      fd.append('paseFile', paseFile);
+    }
+    fd.append('declaracionVeracidad', declaracion ? 'true' : 'false');
     if (requiereAut) agregarAutorizacionAFormData(fd, autorizacion);
 
-    // timeout para fetch (20s; 60s si hay autorización porque se sube más y se genera el PDF)
+    // timeout para fetch (20s; 60s si hay autorización o pase porque se suben más archivos)
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), requiereAut ? 60000 : 20000);
+    const timeoutId  = setTimeout(() => controller.abort(), requiereAut || jugoOtroEquipo === 'SI' ? 60000 : 20000);
 
     try {
       const resp = await fetch(
@@ -402,6 +429,78 @@ export default function FormRegistro() {
                 disabled={loading}
               />
             </div>
+
+            {/* Cambio de equipo: PASE del club anterior */}
+            <div className="campo">
+              <label>
+                ¿Participaste para un club deportivo de la Liga Bienestar Familiar diferente en el campeonato anterior?
+              </label>
+              <div className="radio-row" role="radiogroup">
+                {[['SI', 'SÍ'], ['NO', 'NO']].map(([val, texto]) => (
+                  <label key={val} className={`radio-opcion ${jugoOtroEquipo === val ? 'radio-opcion--activa' : ''}`}>
+                    <input
+                      type="radio"
+                      name="jugoOtroEquipo"
+                      value={val}
+                      required
+                      checked={jugoOtroEquipo === val}
+                      disabled={loading}
+                      onChange={() => {
+                        setJugoOtroEquipo(val);
+                        if (val === 'NO') {
+                          setClubAnterior('');
+                          setPaseFile(null);
+                        }
+                      }}
+                    />
+                    {texto}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {jugoOtroEquipo === 'SI' && (
+              <div className="campo">
+                <label>Nombre del club deportivo al que perteneciste previamente en la Liga Bienestar Familiar</label>
+                <input
+                  required
+                  value={clubAnterior}
+                  placeholder="Nombre del club deportivo anterior"
+                  maxLength={100}
+                  disabled={loading}
+                  onChange={e => setClubAnterior(e.target.value.replace(/^\s+/, '').replace(/\s+/g, ' ').toUpperCase())}
+                />
+              </div>
+            )}
+
+            {jugoOtroEquipo === 'SI' && (
+              <div className="campo">
+                <label>Por favor adjunta el PASE realizado por el Dirigente del Club Deportivo Previo (IMAGEN/FOTO o PDF)</label>
+                <input
+                  type="file"
+                  required
+                  accept={ACCEPT_IMAGEN_PDF}
+                  disabled={loading}
+                  onChange={async (e) => {
+                    const input = e.target;
+                    const file = input.files?.[0];
+                    if (!file) { setPaseFile(null); return; }
+                    const r = await normalizarImagenOPdf(file);
+                    if (r.error) {
+                      input.value = '';
+                      setPaseFile(null);
+                      showMsg(`❌ PASE: ${r.error}`);
+                      return;
+                    }
+                    setPaseFile(r.file);
+                  }}
+                />
+                <small className="aut-seccion__nota">
+                  Puedes subir una foto o un PDF desde tu celular (iPhone o Android) o computador.
+                </small>
+              </div>
+            )}
+
             {/* Autorización digital condicional (14 a 17 años) */}
             {(age !== null && age >= 14 && age < 18) && (
               <AutorizacionDigital
@@ -419,6 +518,23 @@ export default function FormRegistro() {
               />
             )}
             
+
+            {/* Declaración final obligatoria */}
+            <label className="check-row declaracion-final">
+              <input
+                type="checkbox"
+                required
+                checked={declaracion}
+                disabled={loading}
+                onChange={e => setDeclaracion(e.target.checked)}
+              />
+              <span>
+                Declaro que toda la información proporcionada en el presente formulario es verídica, completa y
+                corresponde al jugador inscrito, y que los documentos adjuntos son auténticos. Acepto que cualquier
+                falsedad en los datos o documentos podrá ocasionar la anulación de la inscripción y las sanciones que
+                establezca el reglamento de la Liga Bienestar Familiar.
+              </span>
+            </label>
 
             <button type="submit" className="btn-enviar" disabled={loading}>Registrar Jugador 🏅</button>
 

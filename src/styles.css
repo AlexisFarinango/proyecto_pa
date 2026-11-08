@@ -591,3 +591,11 @@ th.col-num, td.col-num{
   box-shadow: 0 6px 18px rgba(0,0,0,.4);
 }
 .aut-admin__barra-acciones{ display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Declaración final del formulario de registro */
+.declaracion-final{
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255,214,0,.08);
+  border: 2px solid rgba(255,214,0,.45);
+}
