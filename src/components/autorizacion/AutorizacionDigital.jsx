@@ -50,6 +50,8 @@ export const autorizacionVacia = () => ({
   cedula: '',
   parentesco: '',
   telefono: '',
+  seguro: '',       // 'SI' | 'NO'
+  aseguradora: '',  // obligatorio solo si seguro = 'SI'
   firma: null,
   cedulaFile: null,
   fotoFile: null,
@@ -68,6 +70,9 @@ export function validarAutorizacion(v, identificacionJugador = '') {
     return 'La cédula del representante no puede ser la misma del jugador';
   if (!v.parentesco) return 'Seleccione el parentesco del representante';
   if (!telRegex.test(v.telefono)) return 'Ingrese un teléfono válido del representante (7 a 15 dígitos)';
+  if (!v.seguro) return 'Indique si el menor cuenta con seguro médico (SÍ / NO)';
+  if (v.seguro === 'SI' && v.aseguradora.trim().length < 2)
+    return 'Ingrese el nombre de la aseguradora / cobertura del menor';
   if (!v.cedulaFile) return 'Adjunte la cédula del representante (imagen o PDF)';
   if (!v.fotoFile) return 'Adjunte la foto del representante sosteniendo su cédula';
   if (!v.firma) return 'El representante debe firmar la autorización';
@@ -81,6 +86,8 @@ export function agregarAutorizacionAFormData(fd, v) {
   fd.append('representanteCedula', v.cedula);
   fd.append('representanteParentesco', v.parentesco);
   fd.append('representanteTelefono', v.telefono);
+  fd.append('seguroMedico', v.seguro);
+  fd.append('aseguradora', v.seguro === 'SI' ? v.aseguradora.trim() : '');
   fd.append('aceptaAutorizacion', v.acepta ? 'true' : 'false');
   fd.append('plantillaVersion', String(v.plantillaVersion));
   fd.append('firmaRepresentante', v.firma, 'firma.png');
@@ -103,23 +110,35 @@ export default function AutorizacionDigital({ jugador, value, onChange, onError,
   // y el formato llegan de forma asíncrona y no deben pisar lo que se escribió
   const set = (patch) => onChange(prev => ({ ...prev, ...patch }));
 
-  const cargar = async () => {
-    setCargando(true);
-    setErrorCarga('');
+  // silencioso = recarga en segundo plano (sin indicador de carga ni mensaje de error)
+  const cargar = async (silencioso = false) => {
+    if (!silencioso) {
+      setCargando(true);
+      setErrorCarga('');
+    }
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/autorizacion/plantilla`);
+      // Sin caché: siempre se muestra el último formato guardado por el administrador
+      const resp = await fetch(`${import.meta.env.VITE_API_URL}/api/autorizacion/plantilla`, { cache: 'no-store' });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || 'Error');
       setFormato(data);
       set({ plantillaVersion: data.plantilla.version });
     } catch {
-      setErrorCarga('No se pudo cargar el formato de autorización.');
+      if (!silencioso) setErrorCarga('No se pudo cargar el formato de autorización.');
     } finally {
-      setCargando(false);
+      if (!silencioso) setCargando(false);
     }
   };
 
-  useEffect(() => { cargar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    cargar();
+    // Si la página quedó abierta mientras el administrador cambiaba el formato,
+    // al volver a ella se carga la versión vigente (el documento mostrado es el que se firma)
+    const alVolver = () => { if (document.visibilityState === 'visible') cargar(true); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Vista previa de la firma dentro del documento
   useEffect(() => {
@@ -138,6 +157,8 @@ export default function AutorizacionDigital({ jugador, value, onChange, onError,
     JUGADOR_CEDULA: jugador.identificacion,
     JUGADOR_EDAD: jugador.edad != null ? String(jugador.edad) : '',
     EQUIPO: jugador.equipo,
+    SEGURO_MEDICO: value.seguro === 'SI' ? '[X] SÍ  /  [  ] NO' : value.seguro === 'NO' ? '[  ] SÍ  /  [X] NO' : '',
+    ASEGURADORA: value.seguro === 'SI' ? value.aseguradora.trim().toUpperCase() : value.seguro === 'NO' ? 'NA (No Aplica)' : '',
     FECHA: fechaLarga(),
   }), [value, jugador]);
 
@@ -191,7 +212,7 @@ export default function AutorizacionDigital({ jugador, value, onChange, onError,
       {errorCarga && (
         <p className="error">
           {errorCarga}{' '}
-          <button type="button" className="btn-cerrar" onClick={cargar}>Reintentar</button>
+          <button type="button" className="btn-cerrar" onClick={() => cargar()}>Reintentar</button>
         </p>
       )}
 
@@ -260,6 +281,46 @@ export default function AutorizacionDigital({ jugador, value, onChange, onError,
           </div>
 
           <div className="campo">
+            <label>¿El menor cuenta con seguro médico?</label>
+            <div className="radio-row" role="radiogroup">
+              {[['SI', 'SÍ'], ['NO', 'NO']].map(([val, texto]) => (
+                <label key={val} className={`radio-opcion ${value.seguro === val ? 'radio-opcion--activa' : ''}`}>
+                  <input
+                    type="radio"
+                    name="seguroMedico"
+                    value={val}
+                    required
+                    checked={value.seguro === val}
+                    disabled={disabled}
+                    onChange={() => set({ seguro: val })}
+                  />
+                  {texto}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {value.seguro === 'SI' && (
+            <div className="campo">
+              <label>Nombre de la Aseguradora / Cobertura (público o privado)</label>
+              <input
+                required
+                value={value.aseguradora}
+                placeholder="Ej: IESS, MSP, Seguros Equinoccial…"
+                maxLength={120}
+                disabled={disabled}
+                onChange={e => set({ aseguradora: e.target.value.replace(/^\s+/, '').replace(/\s+/g, ' ') })}
+              />
+            </div>
+          )}
+          {value.seguro === 'NO' && (
+            <div className="campo">
+              <label>Nombre de la Aseguradora / Cobertura (público o privado)</label>
+              <input readOnly className="readonly" value="NA (No Aplica)" />
+            </div>
+          )}
+
+          <div className="campo">
             <label>Cédula del representante ambos lados (IMAGEN/FOTO o PDF)</label>
             <input
               type="file"
@@ -285,7 +346,7 @@ export default function AutorizacionDigital({ jugador, value, onChange, onError,
             />
           </div>
 
-          <p className="aut-seccion__subtitulo">Documento a firmar</p>
+          <p className="aut-seccion__subtitulo">Autorización del Menor</p>
           <DocumentoAutorizacion plantilla={formato.plantilla} datos={datos} firmaUrl={firmaUrl} />
 
           <div className="campo">

@@ -220,6 +220,9 @@ export default function ModalEdicion({ jugador, onClose, onSaved }) {
                   {rep?.nombre && (
                     <p style={{ margin: "8px 0 0" }}>
                       <b>{rep.nombre}</b> · C.I. {rep.cedula} · {rep.parentesco} · Tel. {rep.telefono}
+                      {jugador.seguroMedico?.tiene !== undefined && (
+                        <><br />Seguro médico: {jugador.seguroMedico.tiene ? `SÍ (${jugador.seguroMedico.aseguradora})` : "NO"}</>
+                      )}
                       {info?.firmadoEn && <><br />Firmada el {dayjs(info.firmadoEn).format("DD/MM/YYYY HH:mm")} (formato v{info.plantillaVersion})</>}
                     </p>
                   )}

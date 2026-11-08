@@ -5,6 +5,19 @@ import DocumentoAutorizacion, { datosEjemplo, revisarPlantilla } from "../autori
 
 const CAMPOS = ["titulo", "destinatario", "cuerpo", "ciudad", "nota", "despedida"];
 const soloCampos = (p) => Object.fromEntries(CAMPOS.map(c => [c, p?.[c] || ""]));
+const difiere = (form, plantilla) => CAMPOS.some(c => (form?.[c] || "").trim() !== (plantilla?.[c] || ""));
+
+// Borrador sin guardar: se conserva al cambiar de pestaña del admin o recargar la página
+const BORRADOR_KEY = "autorizacionBorrador";
+const leerBorrador = () => {
+  try { return JSON.parse(sessionStorage.getItem(BORRADOR_KEY) || "null"); } catch { return null; }
+};
+const guardarBorrador = (b) => {
+  try {
+    if (b) sessionStorage.setItem(BORRADOR_KEY, JSON.stringify(b));
+    else sessionStorage.removeItem(BORRADOR_KEY);
+  } catch { /* sin almacenamiento */ }
+};
 
 export default function AutorizacionTab() {
   const nav = useNavigate();
@@ -38,7 +51,15 @@ export default function AutorizacionTab() {
       const d = await resp.json();
       if (!resp.ok) throw new Error(d.message || "Error cargando el formato");
       setData(d);
-      setForm(soloCampos(d.plantilla));
+      // Si quedó un borrador sin guardar sobre esta misma versión, se recupera
+      const b = leerBorrador();
+      if (b && b.version === d.plantilla.version && difiere(b.form, d.plantilla)) {
+        setForm(soloCampos(b.form));
+        setMsg("Se recuperaron cambios sin guardar. Recuerda presionar \"Guardar cambios\" para aplicarlos.");
+      } else {
+        guardarBorrador(null);
+        setForm(soloCampos(d.plantilla));
+      }
     } catch (e) {
       setMsg(e.message);
     } finally {
@@ -51,8 +72,24 @@ export default function AutorizacionTab() {
 
   const ejemplo = useMemo(() => datosEjemplo(data?.placeholders), [data]);
   const errores = useMemo(() => (form && data ? revisarPlantilla(form, data.placeholders) : []), [form, data]);
-  const hayCambios = !!(form && data && CAMPOS.some(c => form[c].trim() !== (data.plantilla[c] || "")));
+  const hayCambios = !!(form && data && difiere(form, data.plantilla));
   const vigente = data?.historial.find(h => h.activa);
+
+  // Guarda el borrador y avisa al cerrar/recargar la página si hay cambios sin guardar
+  useEffect(() => {
+    if (!data || !form) return;
+    guardarBorrador(hayCambios ? { version: data.plantilla.version, form } : null);
+    if (!hayCambios) return;
+    const aviso = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", aviso);
+    return () => window.removeEventListener("beforeunload", aviso);
+  }, [form, data, hayCambios]);
+
+  const descartar = () => {
+    guardarBorrador(null);
+    setForm(soloCampos(data.plantilla));
+    setMsg("");
+  };
 
   const set = (campo) => (e) => setForm(f => ({ ...f, [campo]: e.target.value }));
 
@@ -107,6 +144,7 @@ export default function AutorizacionTab() {
       const d = await resp.json();
       if (!resp.ok) throw new Error(d.message || "Error guardando el formato");
       setConfirmar(false);
+      guardarBorrador(null);
       setResultado(`✅ ${d.message}. Se aplicará a los próximos registros.`);
       await load();
     } catch (e) {
@@ -131,6 +169,28 @@ export default function AutorizacionTab() {
         <br />
         Los cambios solo se aplican a los <b>registros futuros</b>; las autorizaciones ya firmadas no se modifican.
       </p>
+
+      {/* Barra fija: los cambios NO se aplican al formulario de registro hasta guardarlos */}
+      {hayCambios && (
+        <div className="aut-admin__barra" role="status">
+          <span>
+            ⚠️ <b>Cambios sin guardar.</b> El formulario de registro seguirá usando la versión {data.plantilla.version} hasta que los guardes.
+          </span>
+          <div className="aut-admin__barra-acciones">
+            <button
+              className="btn-enviar"
+              onClick={() => setConfirmar(true)}
+              disabled={errores.length > 0 || guardando}
+              title={errores.length ? "Corrige los errores del formato antes de guardar" : ""}
+            >
+              💾 Guardar cambios
+            </button>
+            <button className="btn-cerrar" style={{ marginTop: 0 }} onClick={descartar} disabled={guardando}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
 
       {msg && <p className="error">{msg}</p>}
 
@@ -202,7 +262,7 @@ export default function AutorizacionTab() {
               {generandoPdf ? "Generando…" : "👁️ Vista previa PDF"}
             </button>
             {hayCambios && (
-              <button className="btn-cerrar" style={{ marginTop: 0 }} onClick={() => setForm(soloCampos(data.plantilla))}>
+              <button className="btn-cerrar" style={{ marginTop: 0 }} onClick={descartar}>
                 Descartar cambios
               </button>
             )}

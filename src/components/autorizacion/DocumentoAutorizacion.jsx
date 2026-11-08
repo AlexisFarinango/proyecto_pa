@@ -48,14 +48,17 @@ function Rellenar({ texto, datos }) {
   return <>{partes}</>;
 }
 
+// Cada línea es un bloque; los tabuladores (o 4 espacios) al inicio agregan sangría, igual que en el PDF
 function Lineas({ texto, datos }) {
-  const lineas = texto.split('\n');
-  return lineas.map((l, i) => (
-    <React.Fragment key={i}>
-      <Rellenar texto={l} datos={datos} />
-      {i < lineas.length - 1 && <br />}
-    </React.Fragment>
-  ));
+  return texto.split('\n').map((l, i) => {
+    const inicio = l.match(/^[\t ]*/)[0];
+    const niveles = Math.min((inicio.match(/\t/g) || []).length + Math.floor(inicio.replace(/\t/g, '').length / 4), 6);
+    return (
+      <span key={i} className="doc-aut__linea-texto" style={niveles ? { paddingLeft: `${niveles * 1.6}em` } : undefined}>
+        {l.trim() ? <Rellenar texto={l.trim()} datos={datos} /> : ' '}
+      </span>
+    );
+  });
 }
 
 // Vista del documento tal como se generará el PDF

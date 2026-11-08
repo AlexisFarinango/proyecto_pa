@@ -558,3 +558,36 @@ th.col-num, td.col-num{
   padding-left: 10px;
   padding-right: 10px;
 }
+
+/* Líneas del documento de autorización (cada línea es un bloque con sangría opcional) */
+.doc-aut__linea-texto{ display: block; }
+
+/* Opciones SÍ / NO */
+.radio-row{ display: flex; gap: 12px; flex-wrap: wrap; }
+.radio-opcion{
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 10px; cursor: pointer;
+  background: #fcfcfc; color: #000; font-weight: 700;
+  border: 2px solid rgba(255,255,255,.12);
+}
+.radio-opcion input{ width: 20px; height: 20px; accent-color: var(--primary); margin: 0; }
+.radio-opcion--activa{ border-color: var(--accent); box-shadow: 0 0 0 3px rgba(13,59,138,.25); }
+
+/* Barra fija de cambios sin guardar (admin → formato de autorización) */
+.aut-admin__barra{
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #ffd600;
+  color: #000;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+}
+.aut-admin__barra-acciones{ display: flex; gap: 10px; flex-wrap: wrap; }
