@@ -599,3 +599,37 @@ th.col-num, td.col-num{
   background: rgba(255,214,0,.08);
   border: 2px solid rgba(255,214,0,.45);
 }
+
+/* Aviso mientras el backend se enciende (Render gratuito) */
+.aviso-servicio{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(13,59,138,.25);
+  border: 2px solid rgba(120,160,255,.55);
+  line-height: 1.45;
+}
+.aviso-servicio--error{
+  background: rgba(255,82,82,.15);
+  border-color: rgba(255,82,82,.6);
+}
+.spinner{
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: #ffd600;
+  animation: girar .8s linear infinite;
+}
+@keyframes girar{ to { transform: rotate(360deg); } }
+.btn-enviar--esperando,
+.btn-enviar--esperando:hover{
+  background: #6d6d6d;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}

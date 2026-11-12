@@ -6,6 +6,7 @@ import AutorizacionDigital, {
   agregarAutorizacionAFormData,
 } from './autorizacion/AutorizacionDigital';
 import { ACCEPT_IMAGEN_PDF, normalizarImagenOPdf } from '../utils/archivos';
+import { useServicio, asegurarServicio, servicioCaido } from '../utils/servicio';
 const registroAbierto = Number(import.meta.env.VITE_REGISTRO_ABIERTO) === 1;
 
 const identRegex = /^[A-Za-z0-9\-]+$/;
@@ -38,6 +39,9 @@ export default function FormRegistro() {
   const [declaracion, setDeclaracion] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [loadingTexto, setLoadingTexto] = useState('Registrando jugador...');
+  // Backend listo (Render gratuito puede estar encendiéndose)
+  const servicio = useServicio();
   const [modalMessage, setModalMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
 
@@ -168,8 +172,17 @@ export default function FormRegistro() {
     if (!declaracion)
       return showMsg('❌ Debe aceptar la declaración de veracidad de la información');
 
-    // ---- Envío
+    // ---- Confirmar que el servicio sigue encendido justo antes de enviar
+    setLoadingTexto('Conectando con el servicio...');
     setLoading(true);
+    const servicioOk = await asegurarServicio();
+    if (!servicioOk) {
+      setLoading(false);
+      return showMsg('⏳ El servicio aún está cargando. Espera a que desaparezca el aviso sobre el botón y vuelve a presionar "Registrar Jugador". Tus datos no se han perdido.');
+    }
+
+    // ---- Envío
+    setLoadingTexto('Registrando jugador...');
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, v));
     fd.append('idImage', idFile);
@@ -244,13 +257,12 @@ export default function FormRegistro() {
       // Errores de red / CORS / timeout
       if (err.name === 'AbortError') {
         showMsg('⏱️ Tiempo de espera agotado. Inténtalo nuevamente.');
-      } else if (
-        typeof err.message === 'string' &&
-        err.message.toLowerCase().includes('failed to fetch')
-      ) {
-        showMsg('🌐 No se pudo conectar con el servidor. Revisa tu conexión o CORS.');
       } else {
-        showMsg(`❌ Error de red: ${err.message}`);
+        // Falla de red ("Failed to fetch" en Chrome/Android, "Load failed" en Safari/iPhone,
+        // "NetworkError" en Firefox): normalmente el servidor se estaba reiniciando.
+        // Se vuelve a esperar al servicio sin borrar el formulario.
+        servicioCaido();
+        showMsg('⏳ El servicio se estaba reiniciando. Espera un momento a que termine de cargar (verás el aviso sobre el botón) y vuelve a presionar "Registrar Jugador". Tus datos no se han perdido.');
       }
     } finally {
       setLoading(false);
@@ -266,7 +278,7 @@ export default function FormRegistro() {
           {loading && (
             <div className="overlay-loader">
               <div className="ball-loader"></div>
-              <p>Registrando jugador...</p>
+              <p>{loadingTexto}</p>
             </div>
           )}
 
@@ -536,7 +548,39 @@ export default function FormRegistro() {
               </span>
             </label>
 
-            <button type="submit" className="btn-enviar" disabled={loading}>Registrar Jugador 🏅</button>
+            {/* Aviso mientras el servicio (backend) se enciende: el botón sigue visible pero espera */}
+            {!servicio.listo && (
+              <div
+                className={`aviso-servicio ${servicio.estado === 'error' ? 'aviso-servicio--error' : ''}`}
+                role="status"
+                aria-live="polite"
+              >
+                {servicio.estado === 'error' ? (
+                  <>
+                    <span>⚠️ No pudimos conectar con el servicio. Revisa tu conexión a internet e inténtalo de nuevo.</span>
+                    <button type="button" className="btn-cerrar" style={{ marginTop: 0 }} onClick={() => servicio.reintentar()}>
+                      Reintentar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="spinner" aria-hidden="true" />
+                    <span>
+                      <b>Espera un momento mientras cargamos el servicio…</b><br />
+                      Puedes seguir llenando el formulario; el botón se activará automáticamente.
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`btn-enviar ${!servicio.listo ? 'btn-enviar--esperando' : ''}`}
+              disabled={loading || !servicio.listo}
+            >
+              {servicio.listo ? 'Registrar Jugador 🏅' : '⏳ Cargando servicio…'}
+            </button>
 
           </form>
 
